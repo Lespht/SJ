@@ -1,0 +1,112 @@
+:root {
+	--fondo: #fdf8f6;
+	--fondo-elevado: #ffffff;
+	--texto: #2b2227;
+	--texto-suave: #7a6b72;
+	--borde: #eee2e5;
+	--acento: #d6336c;
+	--acento-suave: #fde4ec;
+	--peligro: #c92a2a;
+	--radio: 14px;
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--fondo: #17131a;
+		--fondo-elevado: #221c25;
+		--texto: #f3eaf0;
+		--texto-suave: #a596a0;
+		--borde: #352b38;
+		--acento: #f06595;
+		--acento-suave: #3d2030;
+		color-scheme: dark;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--fondo);
+	color: var(--texto);
+	font-family:
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		Roboto,
+		sans-serif;
+	line-height: 1.5;
+}
+
+h1 {
+	font-size: 1.6rem;
+	margin: 0.5rem 0 1rem;
+}
+
+a {
+	color: var(--acento);
+}
+
+input,
+textarea,
+select,
+button {
+	font: inherit;
+}
+
+input,
+textarea,
+select {
+	width: 100%;
+	padding: 0.6rem 0.75rem;
+	border: 1px solid var(--borde);
+	border-radius: 10px;
+	background: var(--fondo-elevado);
+	color: var(--texto);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+	outline: 2px solid var(--acento);
+	outline-offset: -1px;
+}
+
+button {
+	padding: 0.6rem 1rem;
+	border: none;
+	border-radius: 10px;
+	background: var(--acento);
+	color: white;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+button:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+button.fantasma {
+	background: transparent;
+	color: var(--texto-suave);
+	font-weight: normal;
+}
+
+.tarjeta {
+	background: var(--fondo-elevado);
+	border: 1px solid var(--borde);
+	border-radius: var(--radio);
+	padding: 1rem;
+}
+
+.error {
+	color: var(--peligro);
+}
+
+.suave {
+	color: var(--texto-suave);
+}

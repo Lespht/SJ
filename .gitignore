@@ -1,0 +1,8 @@
+# PocketBase: datos (base de datos, fotos, backups) y binario
+server/pb_data/
+server/pocketbase
+# Frontend compilado (se genera con `pnpm build` en web/)
+server/pb_public/
+
+.DS_Store
+Thumbs.db

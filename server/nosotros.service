@@ -1,0 +1,22 @@
+# Servicio systemd de USUARIO (no requiere sudo).
+# Instalación (en el PC servidor, ajustá la ruta si cambia):
+#   mkdir -p ~/.config/systemd/user
+#   cp nosotros.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now nosotros
+#   loginctl enable-linger $USER   # para que arranque sin iniciar sesión
+#
+# Logs: journalctl --user -u nosotros -f
+
+[Unit]
+Description=Nosotros (PocketBase)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Projects/SJ/server
+ExecStart=%h/Projects/SJ/server/pocketbase serve --http 0.0.0.0:8090
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
