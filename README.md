@@ -72,6 +72,30 @@ Para publicar cambios del frontend: `cd web; pnpm build` (escribe en `server/pb_
 
 Desde el celular podés "Agregar a pantalla de inicio" para usarla como app.
 
+## Servidor en Windows (PC viejo)
+
+`server/windows/instalar.ps1` deja todo listo en `C:\Nosotros`: descarga `pocketbase.exe` (verificando el SHA-256),
+crea una regla del Firewall que **solo** acepta el puerto 8090 desde Meshnet (`100.64.0.0/10`), una tarea programada que
+lo arranca con Windows (sin iniciar sesión) y lo reinicia si falla, y desactiva la suspensión estando enchufado.
+
+1. **En Linux**, compilá el frontend: `cd web; pnpm build`.
+2. Llevá la carpeta `server/` completa al PC con Windows (USB, o `nordvpn fileshare send <peer> server/`).
+   `pb_public/` no está en git, por eso hay que copiarla.
+   Para llevarte también los datos de prueba, primero detené el servicio: `systemctl --user stop nosotros`.
+3. **En Windows**, PowerShell **como Administrador**, dentro de `server\windows`:
+   ```powershell
+   # instalación nueva
+   powershell -ExecutionPolicy Bypass -File .\instalar.ps1
+   # o trayendo los datos (fotos, usuarios, mensajes) del servidor de prueba
+   powershell -ExecutionPolicy Bypass -File .\instalar.ps1 -DatosDesde "..\pb_data"
+   ```
+4. En NordVPN del PC viejo activá Meshnet y permití *tráfico entrante* a tus dispositivos.
+
+Para actualizar el frontend: `pnpm build`, copiá `server/pb_public` y volvé a correr el script (los datos no se tocan).
+Para quitarlo: `.\instalar.ps1 -Desinstalar` (deja los datos en `C:\Nosotros\pb_data`).
+
+Una vez que funcione en Windows, apagá el de prueba en Linux: `systemctl --user disable --now nosotros`.
+
 ## Backups
 
 Todo vive en `server/pb_data/`. En el panel admin → **Settings → Backups** podés programar
