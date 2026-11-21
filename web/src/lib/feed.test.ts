@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cargarFeed, fotosDe, planPendienteAlAzar, proximoPlan } from './feed.svelte';
+import {
+	cargarFeed,
+	cargarPost,
+	EXPAND_POST,
+	fotosDe,
+	planPendienteAlAzar,
+	proximoPlan
+} from './feed.svelte';
 import { pb, type Foto, type Post } from './pb.svelte';
 
 afterEach(() => {
@@ -33,6 +40,22 @@ describe('cargarFeed', () => {
 	it('indica que no hay más posts en la última página', async () => {
 		simularPagina(2, 2);
 		await expect(cargarFeed(2)).resolves.toMatchObject({ hayMas: false });
+	});
+});
+
+describe('cargarPost', () => {
+	it('pide un post por ID con el mismo expand que el feed', async () => {
+		const post = { id: 'p1', tipo: 'momento' } as Post;
+		const getOne = vi.spyOn(pb.collection('posts'), 'getOne').mockResolvedValue(post);
+
+		await expect(cargarPost('p1')).resolves.toBe(post);
+		expect(getOne).toHaveBeenCalledExactlyOnceWith('p1', { expand: EXPAND_POST });
+	});
+
+	it('incluye el autor, las fotos y las notas con sus autores', () => {
+		expect(EXPAND_POST).toBe(
+			'autor,fotos_via_post,fotos_via_post.notas_via_foto,fotos_via_post.notas_via_foto.autor'
+		);
 	});
 });
 
