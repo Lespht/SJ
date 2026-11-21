@@ -8,10 +8,13 @@
 	import { fotosDe } from './feed.svelte.js';
 	import Mazo from './Mazo.svelte';
 	import { fechaRelativa, nombre, type Post } from './pb.svelte.js';
+	import { categoriasPlan } from './posts.js';
 
 	let { post, urls }: { post: Post; urls: Map<string, string> } = $props();
 
-	const pendiente = $derived(post.tipo === 'plan' && !post.hecho);
+	const esPlan = $derived(post.tipo === 'plan');
+	const pendiente = $derived(esPlan && !post.hecho);
+	const categoria = $derived(categoriasPlan.find(({ valor }) => valor === post.categoria)?.label);
 	const fotos = $derived(fotosDe(post));
 	const notas = $derived(
 		fotos
@@ -30,7 +33,7 @@
 	</div>
 {/snippet}
 
-<article class="post">
+<article class="post" class:momento={!esPlan}>
 	<header class="autor">
 		<Avatar usuario={post.expand?.autor} />
 		<span class="quien">{nombre(post.expand?.autor)}</span>
@@ -45,20 +48,26 @@
 		</span>
 	</header>
 	{#if fotos.length}
-		<Mazo
-			fotos={fotos.map((foto) => ({
-				id: foto.id,
-				src: urls.get(foto.id) ?? '',
-				alt: foto.descripcion
-			}))}
-		/>
+		<div class="marco-mazo">
+			<Mazo
+				fotos={fotos.map((foto) => ({
+					id: foto.id,
+					src: urls.get(foto.id) ?? '',
+					alt: foto.descripcion
+				}))}
+			/>
+			{#if esPlan}<span class="cinta" aria-hidden="true"></span>{/if}
+		</div>
 	{/if}
 	<div
 		class="pie"
 		class:polaroid={!fotos.length && !pendiente}
 		class:pendiente={!fotos.length && pendiente}
 	>
-		{#if post.tipo === 'plan'}<h2 class="titulo">{post.titulo}</h2>{/if}
+		{#if esPlan}
+			<h2 class="titulo">{post.titulo}</h2>
+			<span class="etiqueta-plan">Plan{categoria ? ` · ${categoria}` : ''}</span>
+		{/if}
 		{#if post.texto}<p class="texto">{post.texto}</p>{/if}
 		{#each notas as nota (nota.id)}
 			<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
@@ -75,6 +84,27 @@
 	.post:nth-child(even) :global(.mazo),
 	.esqueleto:nth-child(even) {
 		transform: rotate(0.7deg);
+	}
+	.momento:nth-child(odd) :global(.mazo) {
+		transform: rotate(-1.2deg) scale(0.92);
+	}
+	.momento:nth-child(even) :global(.mazo) {
+		transform: rotate(1.2deg) scale(0.92);
+	}
+	.marco-mazo {
+		position: relative;
+		isolation: isolate;
+	}
+	.cinta {
+		position: absolute;
+		top: -9px;
+		left: 50%;
+		z-index: 1;
+		width: 76px;
+		height: 20px;
+		background: color-mix(in oklab, var(--acento) 45%, transparent);
+		transform: translateX(-50%) rotate(-3deg);
+		pointer-events: none;
 	}
 	.autor {
 		display: flex;
@@ -115,8 +145,21 @@
 		font-family: var(--fuente-titulo);
 		font-size: 1.125rem;
 	}
+	.etiqueta-plan {
+		justify-self: start;
+		padding: 0.125rem 0.5rem;
+		border-radius: 999px;
+		background: color-mix(in oklab, var(--acento) 15%, transparent);
+		color: var(--acento);
+		font-size: 0.65rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
 	.texto {
 		white-space: pre-wrap;
+	}
+	.momento .texto {
+		font-style: italic;
 	}
 	.brillo {
 		background: linear-gradient(100deg, var(--fondo) 25%, var(--borde) 50%, var(--fondo) 75%);
