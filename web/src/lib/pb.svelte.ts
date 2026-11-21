@@ -10,6 +10,14 @@ export type Foto = RecordModel & {
 	descripcion: string;
 	fecha: string;
 	autor: string;
+	expand?: { autor?: Usuario; notas_via_foto?: Nota[] };
+};
+
+/** Nota de una persona sobre una foto (una por persona por foto). */
+export type Nota = RecordModel & {
+	foto: string;
+	autor: string;
+	texto: string;
 	expand?: { autor?: Usuario };
 };
 

@@ -6,7 +6,8 @@
 		fechaCorta,
 		obtenerTokenArchivo,
 		urlFoto,
-		type Foto
+		type Foto,
+		type Nota
 	} from '#lib/pb.svelte.js';
 
 	const POR_PAGINA = 30;
@@ -25,6 +26,59 @@
 	let abierta = $state<Foto | null>(null);
 	let confirmarBorrado = $state(false);
 
+	// Notas: null = no se está editando; '' o texto = formulario abierto.
+	let borradorNota = $state<string | null>(null);
+	let guardandoNota = $state(false);
+	let errorNota = $state('');
+
+	const notas = $derived(
+		[...(abierta?.expand?.notas_via_foto ?? [])].sort((a, b) => a.created.localeCompare(b.created))
+	);
+	const miNota = $derived(notas.find((n) => n.autor === sesion.usuario?.id));
+
+	/** Reemplaza las notas de la foto abierta (y en la galería) sin recargar todo. */
+	function actualizarNotas(fotoId: string, cambiar: (ns: Nota[]) => Nota[]) {
+		const aplicar = (f: Foto): Foto =>
+			f.id === fotoId
+				? { ...f, expand: { ...f.expand, notas_via_foto: cambiar(f.expand?.notas_via_foto ?? []) } }
+				: f;
+		fotos = fotos.map(aplicar);
+		if (abierta) abierta = aplicar(abierta);
+	}
+
+	async function guardarNota(e: SubmitEvent) {
+		e.preventDefault();
+		const texto = borradorNota?.trim();
+		if (!abierta || !sesion.usuario || !texto) return;
+		const fotoId = abierta.id;
+		guardandoNota = true;
+		errorNota = '';
+		try {
+			const nota = miNota
+				? await pb.collection('notas').update<Nota>(miNota.id, { texto }, { expand: 'autor' })
+				: await pb
+						.collection('notas')
+						.create<Nota>({ foto: fotoId, autor: sesion.usuario.id, texto }, { expand: 'autor' });
+			actualizarNotas(fotoId, (ns) => [...ns.filter((n) => n.id !== nota.id), nota]);
+			borradorNota = null;
+		} catch (err) {
+			errorNota = err instanceof Error ? err.message : 'No se pudo guardar la nota.';
+		} finally {
+			guardandoNota = false;
+		}
+	}
+
+	async function borrarNota(n: Nota) {
+		errorNota = '';
+		try {
+			await pb.collection('notas').delete(n.id);
+			actualizarNotas(n.foto, (ns) => ns.filter((x) => x.id !== n.id));
+			borradorNota = null;
+		} catch (err) {
+			errorNota = err instanceof Error ? err.message : 'No se pudo borrar la nota.';
+		}
+	}
+
 	$effect(() => {
 		cargar(1);
 	});
@@ -33,7 +87,8 @@
 		const [res, tk] = await Promise.all([
 			pb.collection('fotos').getList<Foto>(p, POR_PAGINA, {
 				sort: '-fecha,-created',
-				expand: 'autor'
+				// Las notas vienen en la misma consulta (relación inversa), sin pedidos extra.
+				expand: 'autor,notas_via_foto,notas_via_foto.autor'
 			}),
 			obtenerTokenArchivo()
 		]);
@@ -79,6 +134,8 @@
 	function cerrar() {
 		abierta = null;
 		confirmarBorrado = false;
+		borradorNota = null;
+		errorNota = '';
 	}
 </script>
 
@@ -133,6 +190,43 @@
 					{/if}
 					<button class="fantasma" onclick={cerrar}>Cerrar</button>
 				</div>
+
+				<section class="notas">
+					{#each notas as n (n.id)}
+						{@const mia = n.autor === sesion.usuario?.id}
+						{#if mia && borradorNota !== null}
+							<!-- se está editando: el formulario de abajo la reemplaza -->
+						{:else}
+							<div class="burbuja" class:mia>
+								{#if !mia}<small class="quien">{nombre(n.expand?.autor)}</small>{/if}
+								<p>{n.texto}</p>
+								{#if mia}
+									<div class="nota-acciones">
+										<button class="mini" onclick={() => (borradorNota = n.texto)} title="Editar">✏️</button>
+										<button class="mini" onclick={() => borrarNota(n)} title="Borrar">🗑</button>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					{/each}
+
+					{#if borradorNota !== null}
+						<form class="nota-form" onsubmit={guardarNota}>
+							<!-- svelte-ignore a11y_autofocus -->
+							<textarea bind:value={borradorNota} maxlength="500" rows="2" placeholder="Tu nota…" autofocus
+							></textarea>
+							<div class="nota-acciones">
+								<button disabled={guardandoNota || !borradorNota.trim()}>
+									{guardandoNota ? 'Guardando…' : 'Guardar'}
+								</button>
+								<button type="button" class="fantasma" onclick={() => (borradorNota = null)}>Cancelar</button>
+							</div>
+						</form>
+					{:else if !miNota}
+						<button class="fantasma dejar" onclick={() => (borradorNota = '')}>+ Dejar una nota</button>
+					{/if}
+					{#if errorNota}<p class="error">{errorNota}</p>{/if}
+				</section>
 			</figcaption>
 		</figure>
 	</div>
@@ -222,5 +316,68 @@
 	}
 	.peligro {
 		background: var(--peligro);
+	}
+	figure {
+		overflow-y: auto;
+	}
+	.notas {
+		flex-basis: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	/* Mismo estilo que las burbujas de mensajes. */
+	.burbuja {
+		max-width: 75%;
+		align-self: flex-start;
+		background: var(--fondo);
+		color: var(--texto);
+		border: 1px solid var(--borde);
+		border-radius: 16px 16px 16px 4px;
+		padding: 0.5rem 0.75rem;
+	}
+	.burbuja.mia {
+		align-self: flex-end;
+		background: var(--acento);
+		border-color: var(--acento);
+		color: white;
+		border-radius: 16px 16px 4px 16px;
+	}
+	.burbuja p {
+		margin: 0;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.quien {
+		font-weight: 600;
+		color: var(--acento);
+	}
+	.nota-acciones {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.25rem;
+		margin-top: 0.25rem;
+	}
+	.mini {
+		background: none;
+		padding: 0 0.25rem;
+		font-size: 0.85rem;
+	}
+	.nota-form {
+		align-self: stretch;
+	}
+	.nota-form textarea {
+		width: 100%;
+		resize: vertical;
+	}
+	.nota-form .fantasma,
+	.dejar {
+		color: #ddd;
+	}
+	.dejar {
+		align-self: flex-start;
+	}
+	.notas .error {
+		margin: 0;
 	}
 </style>

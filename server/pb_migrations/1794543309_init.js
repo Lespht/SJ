@@ -122,7 +122,8 @@ migrate((app) => {
     app.delete(app.findCollectionByNameOrId(name));
   }
   const users = app.findCollectionByNameOrId("users");
-  users.createRule = "";
+  // Aun deshaciendo todo, el registro público queda cerrado.
+  users.createRule = null;
   users.listRule = "id = @request.auth.id";
   users.viewRule = "id = @request.auth.id";
   app.save(users);

@@ -20,7 +20,8 @@ web/                      código del frontend
 | Colección  | Campos                                        | Reglas                                              |
 |------------|-----------------------------------------------|-----------------------------------------------------|
 | `users`    | email, name, avatar                           | sin registro público; se crean desde el admin       |
-| `fotos`    | imagen (protegida), descripcion, fecha, autor | ver: logueados · borrar: autor                      |
+| `fotos`    | imagen (protegida), descripcion, fecha, autor | ver: logueados · editar/borrar: autor               |
+| `notas`    | foto, autor, texto (una por persona y foto)   | ver: logueados · editar/borrar: autor · se borran con la foto |
 | `ideas`    | titulo, detalle, categoria, hecha, autor      | ver/editar: logueados · borrar: autor               |
 | `mensajes` | texto, autor                                  | ver: logueados · editar/borrar: autor               |
 | `puntajes` | juego, puntos, autor                          | ver: logueados · no editables                       |
