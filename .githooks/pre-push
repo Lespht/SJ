@@ -1,0 +1,3 @@
+#!/bin/sh
+# Tests rápidos antes de subir. El CI corre todo (lint, tipos, tests, build, auditoría).
+cd web && pnpm test --silent

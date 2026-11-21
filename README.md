@@ -54,6 +54,17 @@ Vite (`http://localhost:5173`) reenvía `/api` y `/_` a PocketBase, así que el 
 
 Para publicar cambios del frontend: `cd web; pnpm build` (escribe en `server/pb_public/`, sin reiniciar nada).
 
+### Checks
+
+Una vez por clon, activá los hooks del repo (formatean al commitear y corren los tests al hacer push):
+
+```fish
+git config core.hooksPath .githooks
+```
+
+Desde `web/`: `pnpm test` (tests, sin red ni PocketBase), `pnpm lint` (prettier + tipos), `pnpm format`.
+El CI (`.github/workflows/ci.yml`) corre lint, tests, build y `pnpm audit` en cada push.
+
 ## Servidor + Meshnet
 
 1. Copiá la carpeta al PC viejo (o cloná el repo y descargá el binario de PocketBase allí).
