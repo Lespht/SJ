@@ -17,10 +17,22 @@ export function fotosDe(post: Post): Foto[] {
 	);
 }
 
+export async function proximoPlan(hoy: string): Promise<Post | null> {
+	const { items } = await pb.collection('posts').getList<Post>(1, 1, {
+		filter: pb.filter("tipo = 'plan' && hecho = false && archivado = false && fecha >= {:desde}", {
+			desde: `${hoy} 00:00:00.000Z`
+		}),
+		sort: 'fecha'
+	});
+	return items[0] ?? null;
+}
+
 export async function planPendienteAlAzar(): Promise<Post | null> {
 	const { items } = await pb.collection('posts').getList<Post>(1, 1, {
 		filter: "tipo = 'plan' && hecho = false && archivado = false",
-		sort: '@random'
+		sort: '@random',
+		expand: 'autor',
+		requestKey: 'azar'
 	});
 	return items[0] ?? null;
 }

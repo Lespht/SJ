@@ -84,3 +84,9 @@ export function marcasPorDia(posts: Post[]): Map<string, { pendiente: Post[]; he
 export function fechaCortaDia(iso: string): string {
 	return fechaCorta(`${diaDe(iso)}T12:00:00`);
 }
+
+export function fechaLarga(dia: string): string {
+	return new Date(`${dia}T12:00:00`)
+		.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })
+		.replace(/[,.]/g, '');
+}

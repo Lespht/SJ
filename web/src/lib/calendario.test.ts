@@ -5,6 +5,7 @@ import {
 	cargarMes,
 	diaDe,
 	fechaCortaDia,
+	fechaLarga,
 	hoyLocal,
 	marcasPorDia,
 	planesDelDia,
@@ -105,4 +106,9 @@ it('consulta todos los posts fechados del mes hasta el comienzo del año siguien
 
 it('muestra el día guardado como un día del calendario local', () => {
 	expect(fechaCortaDia('2026-11-28 12:00:00.000Z')).toBe(fechaCorta('2026-11-28T12:00:00'));
+});
+
+it('formatea el día con el día de la semana y el mes sin comas ni puntos', () => {
+	expect(fechaLarga('2026-11-28')).toBe('sáb 28 nov');
+	expect(fechaLarga('2027-01-01')).toBe('vie 1 ene');
 });

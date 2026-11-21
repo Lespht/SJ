@@ -1,20 +1,21 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import Avatar from '#lib/Avatar.svelte';
-	import { cargarFeed, feed, fotosDe, planPendienteAlAzar } from '#lib/feed.svelte.js';
+	import { diaDe, fechaLarga, hoyLocal } from '#lib/calendario.js';
+	import { cargarFeed, feed, fotosDe, planPendienteAlAzar, proximoPlan } from '#lib/feed.svelte.js';
 	import Mazo from '#lib/Mazo.svelte';
 	import {
 		fechaRelativa,
 		nombre,
 		obtenerTokenArchivo,
-		pb,
 		urlFoto,
-		type Post,
-		type Usuario
+		type Post
 	} from '#lib/pb.svelte.js';
 
 	let posts = $state<Post[]>([]);
-	let pendiente = $state<{ titulo: string; autor: string }>();
+	let proximo = $state<Post | null>();
+	let sugerencia = $state<Post | null | 'error'>();
+	let eligiendo = $state(false);
 	// URL fija por foto: el token de archivo cambia cada 90 s, y si las URLs dependieran
 	// del token actual, cargar otra página haría bajar de nuevo todas las fotos ya vistas.
 	const urls = new Map<string, string>();
@@ -48,7 +49,9 @@
 	async function reiniciar(version: number) {
 		pagina = 1;
 		posts = [];
-		pendiente = undefined;
+		proximo = undefined;
+		sugerencia = undefined;
+		eligiendo = false;
 		hayMas = false;
 		cargando = true;
 		error = false;
@@ -58,18 +61,20 @@
 
 	async function cargarInicio(version: number) {
 		// PocketBase cancela las consultas simultáneas al mismo endpoint de posts.
-		const plan = await planPendienteAlAzar().catch(() => null);
+		const plan = await proximoPlan(hoyLocal()).catch(() => null);
 		if (version !== feed.version) return;
-		if (plan) void cargarAutor(plan, version);
+		proximo = plan;
 		await pedirPagina(version);
 	}
 
-	async function cargarAutor(plan: Post, version: number) {
-		const autor = await pb
-			.collection('users')
-			.getOne<Usuario>(plan.autor)
-			.catch(() => undefined);
-		if (version === feed.version) pendiente = { titulo: plan.titulo, autor: nombre(autor) };
+	async function elegirPlan() {
+		if (eligiendo) return;
+		const version = feed.version;
+		eligiendo = true;
+		const plan = await planPendienteAlAzar().catch(() => 'error' as const);
+		if (version !== feed.version) return;
+		sugerencia = plan;
+		eligiendo = false;
 	}
 
 	function cargarPagina() {
@@ -102,13 +107,38 @@
 	}
 </script>
 
-{#if pendiente}
-	<aside class="pendiente">
-		<h2 class="titulo">{pendiente.titulo}</h2>
-		<p class="suave">Idea de {pendiente.autor}</p>
-		<a href="/ideas">Ver planes</a>
-	</aside>
-{/if}
+<aside class="tarjeta planes">
+	<div aria-busy={proximo === undefined}>
+		{#if proximo}
+			<p class="suave">
+				Próximo · {fechaLarga(diaDe(proximo.fecha))}{proximo.hora ? ` · ${proximo.hora}` : ''}
+			</p>
+			<h2 class="titulo">{proximo.titulo}</h2>
+		{:else if proximo === null}
+			<p class="suave">No tienen nada con fecha.</p>
+		{:else}
+			<div class="linea fecha-esqueleto" aria-hidden="true"></div>
+		{/if}
+	</div>
+	<div class="enlaces-planes">
+		<a href="/ideas?vista=calendario">Calendario</a>
+		<a class="secundario" href="/ideas">Todos los planes</a>
+	</div>
+	<div class="azar">
+		<div role="status">
+			{#if sugerencia === 'error'}
+				<p class="error">No se pudo elegir uno.</p>
+			{:else if sugerencia === null}
+				<p class="suave">No hay planes pendientes.</p>
+			{:else if sugerencia}
+				<p>«{sugerencia.titulo}» · idea de {nombre(sugerencia.expand?.autor)}</p>
+			{/if}
+		</div>
+		<button class="fantasma" disabled={eligiendo} onclick={elegirPlan}>
+			{sugerencia && sugerencia !== 'error' ? 'Otra' : '¿No saben qué hacer?'}
+		</button>
+	</div>
+</aside>
 
 <div class="feed" aria-busy={cargando}>
 	{#each posts as post (post.id)}
@@ -175,13 +205,44 @@
 		font-weight: inherit;
 		text-decoration: underline;
 	}
-	.pendiente {
+	.planes {
 		margin-bottom: 1.5rem;
-		padding: 1rem;
 		overflow-wrap: anywhere;
 	}
-	.pendiente p {
-		margin: 0.25rem 0 0.5rem;
+	.planes p {
+		margin: 0 0 0.25rem;
+	}
+	.fecha-esqueleto {
+		background: var(--fondo);
+	}
+	.enlaces-planes {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
+	.enlaces-planes a {
+		padding: 0.6rem 1rem;
+		border: 1px solid var(--acento);
+		border-radius: 10px;
+		background: var(--acento);
+		color: var(--sobre-acento);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.enlaces-planes .secundario {
+		border-color: var(--borde);
+		background: transparent;
+		color: var(--texto);
+	}
+	.azar {
+		margin-top: 0.75rem;
+		border-top: 1px solid var(--borde);
+		padding-top: 0.5rem;
+	}
+	.azar button {
+		padding-inline: 0;
+		color: var(--acento);
 	}
 	.feed {
 		display: grid;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cargarFeed, fotosDe, planPendienteAlAzar } from './feed.svelte';
+import { cargarFeed, fotosDe, planPendienteAlAzar, proximoPlan } from './feed.svelte';
 import { pb, type Foto, type Post } from './pb.svelte';
 
 afterEach(() => {
@@ -62,6 +62,27 @@ describe('fotosDe', () => {
 	});
 });
 
+describe('proximoPlan', () => {
+	it('pide el primer plan pendiente no archivado desde hoy y devuelve null si no hay', async () => {
+		const getList = simularPagina(1, 0, [], 1);
+
+		await expect(proximoPlan('2026-11-21')).resolves.toBeNull();
+		expect(getList).toHaveBeenCalledExactlyOnceWith(1, 1, {
+			filter: expect.stringMatching(
+				/^tipo = 'plan' && hecho = false && archivado = false && fecha >= ["']2026-11-21 00:00:00\.000Z["']$/
+			),
+			sort: 'fecha'
+		});
+	});
+
+	it('devuelve el plan que encontró', async () => {
+		const plan = { id: 'p1', tipo: 'plan', fecha: '2026-11-28 12:00:00.000Z' } as Post;
+		simularPagina(1, 1, [plan], 1);
+
+		await expect(proximoPlan('2026-11-21')).resolves.toBe(plan);
+	});
+});
+
 describe('planPendienteAlAzar', () => {
 	it('pide un plan pendiente sin archivar al azar y devuelve el primer resultado', async () => {
 		const plan = { id: 'p1', tipo: 'plan' } as Post;
@@ -70,7 +91,9 @@ describe('planPendienteAlAzar', () => {
 		await expect(planPendienteAlAzar()).resolves.toBe(plan);
 		expect(getList).toHaveBeenCalledExactlyOnceWith(1, 1, {
 			filter: "tipo = 'plan' && hecho = false && archivado = false",
-			sort: '@random'
+			sort: '@random',
+			expand: 'autor',
+			requestKey: 'azar'
 		});
 	});
 
