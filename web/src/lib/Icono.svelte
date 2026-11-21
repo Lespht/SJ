@@ -9,6 +9,7 @@
 			'<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.2"/><circle cx="15" cy="15" r="1.2"/><circle cx="15" cy="9" r="1.2"/><circle cx="9" cy="15" r="1.2"/>',
 		mensajes: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="m4 7 8 6 8-6"/>',
 		cerrar: '<path d="M6 6l12 12M18 6 6 18"/>',
+		'flecha-izquierda': '<path d="m12 5-7 7 7 7M5 12h14"/>',
 		recargar: '<path d="M20 11a8 8 0 1 0-2 6M20 5v6h-6"/>',
 		editar: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
 		borrar: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',

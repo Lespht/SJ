@@ -36,6 +36,7 @@
 	];
 
 	const enLogin = $derived(page.url.pathname === '/login');
+	const enMensajes = $derived(page.url.pathname === '/mensajes');
 	const usuarioId = $derived(sesion.usuario?.id);
 	const tema = $derived(temaDe(sesion.usuario));
 
@@ -133,23 +134,25 @@
 		</div>
 	</header>
 
-	<main>
+	<main class:sin-barra={enMensajes}>
 		{@render children()}
 	</main>
 
-	<nav class="barra">
-		{#each secciones as s (s.href)}
-			<a
-				href={s.href}
-				class:activa={activa(s.href)}
-				aria-current={activa(s.href) ? 'page' : undefined}
-				onclick={s.href === '/' ? tocarInicio : undefined}
-			>
-				<Icono nombre={s.icono} />
-				<small>{s.label}</small>
-			</a>
-		{/each}
-	</nav>
+	{#if !enMensajes}
+		<nav class="barra">
+			{#each secciones as s (s.href)}
+				<a
+					href={s.href}
+					class:activa={activa(s.href)}
+					aria-current={activa(s.href) ? 'page' : undefined}
+					onclick={s.href === '/' ? tocarInicio : undefined}
+				>
+					<Icono nombre={s.icono} />
+					<small>{s.label}</small>
+				</a>
+			{/each}
+		</nav>
+	{/if}
 	{#if compartiendo}
 		<Hoja autor={sesion.usuario.id} cerrar={() => (compartiendo = false)} compartir={alCompartir} />
 	{/if}
@@ -233,6 +236,9 @@
 		padding: 1rem 1rem calc(var(--alto-nav) + 1rem);
 		/* Una polaroid que sale volando del mazo no debe ensanchar la página. */
 		overflow-x: clip;
+	}
+	main.sin-barra {
+		--alto-nav: env(safe-area-inset-bottom, 0px);
 	}
 	.barra {
 		position: fixed;

@@ -133,7 +133,12 @@
 </script>
 
 <div class="titulo">
-	<h1>Mensajes</h1>
+	<div class="encabezado">
+		<a class="volver" href="/" aria-label="Volver a Inicio">
+			<Icono nombre="flecha-izquierda" />
+		</a>
+		<h1>Mensajes</h1>
+	</div>
 	<button
 		class="fantasma tema"
 		onclick={() => (eligiendo = !eligiendo)}
@@ -204,15 +209,29 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		margin-bottom: 0.5rem;
+	}
+	.encabezado {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.volver {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		flex: none;
+		border-radius: 10px;
+		color: var(--texto);
 	}
 	.titulo h1 {
-		margin: 0.25rem 0 1rem;
+		margin: 0;
 	}
 	.tema {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
-		margin-bottom: 0.75rem;
 	}
 	/* Flota sobre el chat para no cambiar su alto. */
 	.temas {
@@ -241,8 +260,7 @@
 	.chat {
 		display: flex;
 		flex-direction: column;
-		/* Todo el alto disponible entre la cabecera y la barra de abajo,
-		   menos el padding de main (2rem) y el título (~3rem). */
+		/* Alto disponible con el área segura, el padding de main y el título. */
 		height: calc(100dvh - var(--alto-cabecera) - var(--alto-nav) - 5rem);
 		min-height: 320px;
 		padding: 0;
