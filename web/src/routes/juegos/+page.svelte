@@ -1,21 +1,30 @@
 <script lang="ts">
-	import { pb, sesion, nombre, fechaCorta, type Puntaje } from '#lib/pb.svelte.js';
+	import Icono from '#lib/Icono.svelte';
+	import { armarCartas, puntosPor, type Carta, type FotoJuego } from '#lib/memoria.js';
+	import {
+		pb,
+		sesion,
+		nombre,
+		fechaCorta,
+		obtenerTokenArchivo,
+		urlFoto,
+		type Foto,
+		type Puntaje
+	} from '#lib/pb.svelte.js';
 
-	// Memotest: encontrar los pares. Menos intentos = más puntos.
+	// Memotest con fotos de ustedes: encontrar los pares. Menos intentos = más puntos.
 	const JUEGO = 'memoria';
-	const EMOJIS = ['💖', '🌹', '🍓', '🐱', '🌙', '🎵', '🍕', '✈️'];
-
-	type Carta = { id: number; emoji: string; visible: boolean; encontrada: boolean };
 
 	let cartas = $state<Carta[]>([]);
 	let elegidas = $state<number[]>([]);
 	let intentos = $state(0);
 	let bloqueado = $state(false);
 	let guardado = $state(false);
+	let preparando = $state(true);
 	let mejores = $state<Puntaje[]>([]);
 
 	const terminado = $derived(cartas.length > 0 && cartas.every((c) => c.encontrada));
-	const puntos = $derived(Math.max(10, 200 - (intentos - EMOJIS.length) * 10));
+	const puntos = $derived(puntosPor(intentos));
 
 	$effect(() => {
 		nuevaPartida();
@@ -26,25 +35,31 @@
 		if (terminado && !guardado) guardar();
 	});
 
-	function mezclar<T>(arr: T[]) {
-		const a = [...arr];
-		for (let i = a.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[a[i], a[j]] = [a[j], a[i]];
+	/** 8 fotos al azar del álbum. Si falla la red, se juega con figuras. */
+	async function fotosAlAzar(): Promise<FotoJuego[]> {
+		try {
+			const [res, token] = await Promise.all([
+				pb.collection('fotos').getList<Foto>(1, 8, { sort: '@random' }),
+				obtenerTokenArchivo()
+			]);
+			return res.items.map((f) => ({
+				id: f.id,
+				src: urlFoto(f, token, '400x400'),
+				alt: f.descripcion
+			}));
+		} catch {
+			return [];
 		}
-		return a;
 	}
 
-	function nuevaPartida() {
-		cartas = mezclar([...EMOJIS, ...EMOJIS]).map((emoji, id) => ({
-			id,
-			emoji,
-			visible: false,
-			encontrada: false
-		}));
+	async function nuevaPartida() {
+		preparando = true;
+		const fotos = await fotosAlAzar();
+		cartas = armarCartas(fotos);
 		elegidas = [];
 		intentos = 0;
 		guardado = false;
+		preparando = false;
 	}
 
 	function elegir(i: number) {
@@ -56,7 +71,7 @@
 
 		intentos++;
 		const [a, b] = elegidas;
-		if (cartas[a].emoji === cartas[b].emoji) {
+		if (cartas[a].clave === cartas[b].clave) {
 			cartas[a].encontrada = cartas[b].encontrada = true;
 			elegidas = [];
 		} else {
@@ -65,7 +80,7 @@
 				cartas[a].visible = cartas[b].visible = false;
 				elegidas = [];
 				bloqueado = false;
-			}, 800);
+			}, 900);
 		}
 	}
 
@@ -93,21 +108,38 @@
 		<div class="cabecera">
 			<h2>Memotest</h2>
 			<span class="suave">Intentos: {intentos}</span>
-			<button class="fantasma" onclick={nuevaPartida}>Reiniciar</button>
+			<button class="fantasma" onclick={nuevaPartida} disabled={preparando}>Otra partida</button>
 		</div>
 
-		<div class="tablero">
-			{#each cartas as c, i (c.id)}
-				<button
-					class="carta"
-					class:dada-vuelta={c.visible || c.encontrada}
-					class:encontrada={c.encontrada}
-					onclick={() => elegir(i)}
-					aria-label={c.visible || c.encontrada ? c.emoji : 'Carta oculta'}
-				>
-					<span>{c.visible || c.encontrada ? c.emoji : ''}</span>
-				</button>
-			{/each}
+		<div class="tablero" aria-busy={preparando}>
+			{#if preparando}
+				{#each Array(16) as _, i (i)}
+					<div class="carta esqueleto" aria-hidden="true"></div>
+				{/each}
+			{:else}
+				{#each cartas as c, i (c.id)}
+					{@const vista = c.visible || c.encontrada}
+					<button
+						class="carta"
+						class:dada-vuelta={vista}
+						class:encontrada={c.encontrada}
+						onclick={() => elegir(i)}
+						aria-label={vista
+							? c.cara.tipo === 'foto'
+								? c.cara.foto.alt || 'Foto'
+								: c.cara.figura
+							: 'Carta tapada'}
+					>
+						<span class="cara">
+							{#if c.cara.tipo === 'foto'}
+								<img src={c.cara.foto.src} alt="" draggable="false" />
+							{:else}
+								<Icono nombre={c.cara.figura} tam={34} />
+							{/if}
+						</span>
+					</button>
+				{/each}
+			{/if}
 		</div>
 
 		{#if terminado}
@@ -166,28 +198,56 @@
 	}
 	.carta {
 		aspect-ratio: 1;
-		font-size: clamp(1.5rem, 7vw, 2.2rem);
 		padding: 0;
+		color: var(--acento);
 		background: var(--fondo-elevado);
 		border: 1.5px dashed var(--texto-suave);
 		border-radius: 4px;
+		overflow: hidden;
 		transition:
-			transform 0.2s,
-			background 0.2s;
+			transform 0.3s,
+			border-color 0.2s;
 	}
+	.cara {
+		display: grid;
+		place-items: center;
+		width: 100%;
+		height: 100%;
+		visibility: hidden;
+		transform: rotateY(180deg);
+	}
+	.cara img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+		user-select: none;
+	}
+	/* Dada vuelta: una polaroid chiquita con la foto o la figura. */
 	.carta.dada-vuelta {
-		background: var(--fondo-elevado);
+		padding: 4px 4px 10px;
 		border: 1.5px solid var(--borde);
 		box-shadow: var(--sombra-polaroid);
 		transform: rotateY(180deg);
 	}
-	.carta.dada-vuelta span {
-		display: inline-block;
-		transform: rotateY(180deg);
+	.carta.dada-vuelta .cara {
+		visibility: visible;
 	}
 	.carta.encontrada {
-		background: var(--acento-suave);
 		border-color: var(--acento);
+	}
+	.esqueleto {
+		background: linear-gradient(100deg, var(--fondo) 25%, var(--borde) 50%, var(--fondo) 75%);
+		background-size: 200% 100%;
+		animation: brillo 1.8s ease-in-out infinite;
+	}
+	@keyframes brillo {
+		from {
+			background-position: 150% 0;
+		}
+		to {
+			background-position: -50% 0;
+		}
 	}
 	.fin {
 		margin-top: 1rem;

@@ -11,7 +11,18 @@
 		cerrar: '<path d="M6 6l12 12M18 6 6 18"/>',
 		editar: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
 		borrar: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/>',
-		salir: '<path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10"/>'
+		salir: '<path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10"/>',
+		// Figuras del memotest (cuando no alcanzan las fotos).
+		luna: '<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/>',
+		sol: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
+		flor: '<circle cx="12" cy="10" r="2"/><path d="M12 8c0-3 3-3 3-1s-3 3-3 3M12 8c0-3-3-3-3-1s3 3 3 3M14 10c3 0 3 3 1 3s-3-3-3-3M10 10c-3 0-3 3-1 3s3-3 3-3M12 12v9M12 17c-2 0-3.5-1-4-2.5M12 18c2 0 3.5-1 4-2.5"/>',
+		taza: '<path d="M5 9h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M16 11h1.5a2 2 0 0 1 0 4H16M8 3.5c0 1.5 1 1.5 1 3M12 3.5c0 1.5 1 1.5 1 3"/>',
+		nota: '<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+		hoja: '<path d="M5 19c0-8 5-14 14-14 0 9-6 14-14 14z"/><path d="M5 19 13 11"/>',
+		estrella:
+			'<path d="m12 3.5 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>',
+		corazon:
+			'<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>'
 	} as const;
 
 	export type NombreIcono = keyof typeof TRAZOS;
