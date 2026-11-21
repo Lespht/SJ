@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { scale } from 'svelte/transition';
-	import { diaDe, hoyLocal } from '#lib/calendario.js';
+	import { avisoChoque, diaDe, hoyLocal, planesDelDia } from '#lib/calendario.js';
 	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import {
@@ -188,6 +188,12 @@
 	}
 </script>
 
+{#snippet avisoFecha(dia: string, excluirId?: string)}
+	{#await dia && planesDelDia(dia, excluirId).then(avisoChoque, () => '') then aviso}
+		{#if aviso}<p class="aviso" role="status">{aviso}</p>{/if}
+	{/await}
+{/snippet}
+
 <h1>Planes</h1>
 
 <form class="tarjeta nueva" onsubmit={agregar}>
@@ -204,6 +210,7 @@
 		<label>
 			Hora (opcional)<input type="time" bind:value={horaNueva} disabled={!diaNuevo || ocupado} />
 		</label>
+		{@render avisoFecha(diaNuevo)}
 	</div>
 	<button disabled={ocupado || cargando}>Agregar</button>
 </form>
@@ -319,6 +326,7 @@
 											disabled={!diaEditado || ocupado}
 										/>
 									</label>
+									{@render avisoFecha(diaEditado, plan.id)}
 								</div>
 								<div class="acciones">
 									<button disabled={ocupado}>Guardar</button>
@@ -379,6 +387,11 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.5rem;
+	}
+	.aviso {
+		grid-column: 1 / -1;
+		color: var(--acento);
+		margin: 0;
 	}
 	.filtros {
 		display: flex;
