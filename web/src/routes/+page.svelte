@@ -201,6 +201,8 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0 0.25rem;
+		/* Las polaroids de atrás del mazo están giradas: sin este aire tapan la inicial. */
+		margin-bottom: 0.75rem;
 		font-size: 0.9rem;
 	}
 	.inicial {
