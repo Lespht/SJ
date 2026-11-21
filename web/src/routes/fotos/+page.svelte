@@ -21,22 +21,6 @@
 	let pagina = $state(1);
 	let hayMas = $state(false);
 
-	let archivos = $state<FileList | null>(null);
-	let descripcion = $state('');
-	let fecha = $state(new Date().toISOString().slice(0, 10));
-	let subiendo = $state(false);
-	let error = $state('');
-	let subidaPendiente:
-		| {
-				archivos: FileList;
-				texto: string;
-				fecha: string;
-				autor: string;
-				post: string;
-				siguiente: number;
-		  }
-		| undefined;
-
 	let abierta = $state<Foto | null>(null);
 	let confirmarBorrado = $state(false);
 	let borrando = $state(false);
@@ -121,55 +105,6 @@
 		hayMas = p < res.totalPages;
 	}
 
-	async function subir(e: SubmitEvent) {
-		e.preventDefault();
-		if (subiendo || !archivos?.length || !sesion.usuario) return;
-		const datos = {
-			archivos,
-			texto: descripcion,
-			fecha: `${fecha} 12:00:00.000Z`,
-			autor: sesion.usuario.id
-		};
-		subiendo = true;
-		error = '';
-		try {
-			let lote = subidaPendiente;
-			if (
-				!lote ||
-				lote.archivos !== datos.archivos ||
-				lote.texto !== datos.texto ||
-				lote.fecha !== datos.fecha ||
-				lote.autor !== datos.autor
-			) {
-				const post = await pb.collection('posts').create<Post>({
-					tipo: 'momento',
-					texto: datos.texto,
-					fecha: datos.fecha,
-					autor: datos.autor
-				});
-				lote = subidaPendiente = { ...datos, post: post.id, siguiente: 0 };
-			}
-			for (; lote.siguiente < lote.archivos.length; lote.siguiente += 1) {
-				const form = new FormData();
-				form.append('imagen', lote.archivos[lote.siguiente]);
-				form.append('descripcion', lote.texto);
-				form.append('fecha', lote.fecha);
-				form.append('autor', lote.autor);
-				form.append('post', lote.post);
-				await pb.collection('fotos').create(form);
-			}
-			subidaPendiente = undefined;
-			descripcion = '';
-			archivos = null;
-			(e.target as HTMLFormElement).reset();
-			await cargar(1);
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'No se pudo subir la foto.';
-		} finally {
-			subiendo = false;
-		}
-	}
-
 	async function borrar(f: Foto) {
 		if (borrando || f.autor !== sesion.usuario?.id) return;
 		borrando = true;
@@ -214,25 +149,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && cerrar()} />
 
-<h1>Fotos</h1>
-
-<form class="tarjeta subir" onsubmit={subir}>
-	<input type="file" accept="image/*" multiple bind:files={archivos} required disabled={subiendo} />
-	<input
-		type="text"
-		placeholder="Descripción (opcional)"
-		bind:value={descripcion}
-		maxlength="500"
-		disabled={subiendo}
-	/>
-	<input type="date" bind:value={fecha} disabled={subiendo} />
-	<button disabled={subiendo || !archivos?.length}>
-		{subiendo
-			? 'Subiendo…'
-			: `Subir${archivos && archivos.length > 1 ? ` (${archivos.length})` : ''}`}
-	</button>
-	{#if error}<p class="error">{error}</p>{/if}
-</form>
+<h1>Álbum</h1>
 
 {#if errorBorrado && !abierta}<p class="error" role="alert">{errorBorrado}</p>{/if}
 
@@ -341,21 +258,6 @@
 {/if}
 
 <style>
-	.subir {
-		display: grid;
-		grid-template-columns: 2fr 2fr 1fr auto;
-		gap: 0.5rem;
-		margin-bottom: 1.5rem;
-	}
-	.subir .error {
-		grid-column: 1 / -1;
-		margin: 0;
-	}
-	@media (max-width: 700px) {
-		.subir {
-			grid-template-columns: 1fr;
-		}
-	}
 	.galeria {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

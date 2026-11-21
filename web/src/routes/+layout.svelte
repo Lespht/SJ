@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { setContext } from 'svelte';
+	import { feed } from '#lib/feed.svelte.js';
+	import Hoja from '#lib/Hoja.svelte';
 	import { sesion, renovarSesion } from '#lib/pb.svelte.js';
 	import Icono, { type NombreIcono } from '#lib/Icono.svelte';
 	import type { LayoutProps } from './$types';
@@ -9,6 +12,19 @@
 	import './app.css';
 
 	let { children }: LayoutProps = $props();
+	let compartiendo = $state(false);
+
+	function abrirHoja() {
+		compartiendo = true;
+	}
+
+	setContext('abrirHoja', abrirHoja);
+
+	function alCompartir() {
+		compartiendo = false;
+		feed.version += 1;
+		if (page.url.pathname !== '/') void goto('/');
+	}
 
 	const secciones: { href: string; label: string; icono: NombreIcono }[] = [
 		{ href: '/', label: 'Inicio', icono: 'inicio' },
@@ -45,10 +61,15 @@
 {:else if sesion.usuario}
 	<header class="cabecera">
 		<div class="lado">
-			<!-- Registro rápido: por ahora lleva a subir fotos (NOS-11 lo reemplaza). -->
-			<a href="/fotos" class="boton-icono" aria-label="Agregar">
+			<button
+				type="button"
+				class="boton-icono"
+				aria-label="Compartir"
+				aria-haspopup="dialog"
+				onclick={abrirHoja}
+			>
 				<Icono nombre="mas" />
-			</a>
+			</button>
 		</div>
 		<a href="/" class="marca">Nosotros</a>
 		<div class="lado derecha">
@@ -82,6 +103,9 @@
 			</a>
 		{/each}
 	</nav>
+	{#if compartiendo}
+		<Hoja autor={sesion.usuario.id} cerrar={() => (compartiendo = false)} compartir={alCompartir} />
+	{/if}
 {/if}
 
 <style>
@@ -118,6 +142,10 @@
 		place-items: center;
 		color: var(--texto);
 		border-radius: 50%;
+	}
+	button.boton-icono {
+		background: transparent;
+		padding: 0;
 	}
 	.boton-icono.activo {
 		color: var(--acento);

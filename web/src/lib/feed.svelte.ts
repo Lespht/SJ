@@ -1,5 +1,7 @@
 import { pb, type Foto, type Post } from './pb.svelte.js';
 
+export const feed = $state({ version: 0 });
+
 export async function cargarFeed(pagina: number): Promise<{ items: Post[]; hayMas: boolean }> {
 	const { items, page, totalPages } = await pb.collection('posts').getList<Post>(pagina, 10, {
 		filter: "archivado = false && (tipo = 'momento' || hecho = true)",

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fotosDe } from '#lib/feed.js';
+	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import {
 		fechaCorta,
@@ -63,6 +63,8 @@
 	<Icono nombre="salir" tam={20} />
 	Cerrar sesión
 </button>
+
+<p><a href="/fotos">Álbum</a></p>
 
 <section aria-labelledby="titulo-archivo" aria-busy={cargando}>
 	<h2 id="titulo-archivo">Archivo</h2>

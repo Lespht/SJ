@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { scale } from 'svelte/transition';
-	import { fotosDe } from '#lib/feed.js';
+	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import {
 		fechaCorta,
@@ -13,15 +13,14 @@
 		urlFoto,
 		type Post
 	} from '#lib/pb.svelte.js';
-	import { archivar, borrarPost, completarPlan, crearPlan, ErrorFotosPlan } from '#lib/posts.js';
-
-	const categorias = [
-		{ valor: 'cita', label: 'Cita' },
-		{ valor: 'viaje', label: 'Viaje' },
-		{ valor: 'regalo', label: 'Regalo' },
-		{ valor: 'comida', label: 'Comida' },
-		{ valor: 'otro', label: 'Otro' }
-	] as const;
+	import {
+		archivar,
+		borrarPost,
+		categoriasPlan,
+		completarPlan,
+		crearPlan,
+		ErrorFotosPlan
+	} from '#lib/posts.js';
 
 	let planes = $state<Post[]>([]);
 	const urls = new Map<string, string>();
@@ -153,7 +152,7 @@
 <form class="tarjeta nueva" onsubmit={agregar}>
 	<input placeholder="¿Qué quieren hacer?" bind:value={titulo} required maxlength="200" />
 	<select bind:value={categoria} aria-label="Categoría">
-		{#each categorias as c (c.valor)}
+		{#each categoriasPlan as c (c.valor)}
 			<option value={c.valor}>{c.label}</option>
 		{/each}
 	</select>
@@ -164,7 +163,7 @@
 
 <div class="filtros">
 	<button class:activo={filtro === ''} onclick={() => (filtro = '')}>Todas</button>
-	{#each categorias as c (c.valor)}
+	{#each categoriasPlan as c (c.valor)}
 		<button class:activo={filtro === c.valor} onclick={() => (filtro = c.valor)}>{c.label}</button>
 	{/each}
 	<label class="hechas"><input type="checkbox" bind:checked={verHechos} /> Ver hechos</label>
@@ -199,7 +198,9 @@
 						<div class="texto">
 							<h2>{plan.titulo}</h2>
 							{#if plan.fecha}<p class="suave">{fechaCorta(plan.fecha)}</p>{/if}
-							<button disabled={ocupado} onclick={() => quitar(plan, archivar)}>Archivar</button>
+							<button class="fantasma" disabled={ocupado} onclick={() => quitar(plan, archivar)}>
+								Archivar
+							</button>
 						</div>
 					</div>
 				{:else}

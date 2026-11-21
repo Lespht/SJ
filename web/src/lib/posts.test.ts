@@ -1,5 +1,13 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { archivar, borrarPost, completarPlan, crearPlan, restaurar } from './posts';
+import {
+	archivar,
+	borrarPost,
+	completarPlan,
+	crearMomento,
+	crearPlan,
+	ErrorFotosMomento,
+	restaurar
+} from './posts';
 import { pb, type Foto, type Post } from './pb.svelte';
 
 const plan = { id: 'plan1', tipo: 'plan' } as Post;
@@ -9,6 +17,65 @@ const fechaGuardada = '2026-11-21 12:00:00.000Z';
 afterEach(() => {
 	vi.restoreAllMocks();
 	vi.useRealTimers();
+});
+
+it('crea un solo momento y le vincula sus dos fotos', async () => {
+	const momento = { id: 'm1', tipo: 'momento' } as Post;
+	const crear = vi.spyOn(pb.collection('posts'), 'create').mockResolvedValue(momento);
+	const subir = vi.spyOn(pb.collection('fotos'), 'create').mockResolvedValue({ id: 'f1' } as Foto);
+	const archivos = ['una.jpg', 'dos.jpg'].map((nombre) => new File(['foto'], nombre));
+
+	await expect(crearMomento(archivos, 'Una tarde', fecha, 'u1')).resolves.toBe(momento);
+	expect(crear).toHaveBeenCalledExactlyOnceWith({
+		tipo: 'momento',
+		texto: 'Una tarde',
+		fecha: fechaGuardada,
+		autor: 'u1'
+	});
+	expect(crear).toHaveBeenCalledBefore(subir);
+	expect(subir).toHaveBeenCalledTimes(2);
+	for (const [i, imagen] of archivos.entries()) {
+		expect(Object.fromEntries(subir.mock.calls[i][0] as FormData)).toEqual({
+			imagen,
+			post: momento.id,
+			autor: 'u1',
+			fecha: fechaGuardada,
+			descripcion: 'Una tarde'
+		});
+	}
+});
+
+it('rechaza compartir un momento sin fotos antes de llamar a la API', async () => {
+	const crear = vi.spyOn(pb.collection('posts'), 'create');
+	const subir = vi.spyOn(pb.collection('fotos'), 'create');
+
+	await expect(crearMomento([], 'Una tarde', fecha, 'u1')).rejects.toThrow(
+		'Elegí al menos una foto.'
+	);
+	expect(crear).not.toHaveBeenCalled();
+	expect(subir).not.toHaveBeenCalled();
+});
+
+it('reanuda la subida del mismo momento desde la foto que falló', async () => {
+	const momento = { id: 'm1', tipo: 'momento' } as Post;
+	const crear = vi.spyOn(pb.collection('posts'), 'create').mockResolvedValue(momento);
+	const subir = vi
+		.spyOn(pb.collection('fotos'), 'create')
+		.mockResolvedValue({ id: 'f1' } as Foto)
+		.mockResolvedValueOnce({ id: 'f1' } as Foto)
+		.mockRejectedValueOnce(new Error('Falló la segunda foto'));
+	const archivos = ['una.jpg', 'dos.jpg'].map((nombre) => new File(['foto'], nombre));
+
+	const fallo = await crearMomento(archivos, '', fecha, 'u1').catch((err: unknown) => err);
+	if (!(fallo instanceof ErrorFotosMomento))
+		throw new Error('Faltó el error de subida', { cause: fallo });
+	await expect(fallo.reintentar()).resolves.toBe(momento);
+	expect(crear).toHaveBeenCalledTimes(1);
+	expect(subir.mock.calls.map(([form]) => (form as FormData).get('imagen'))).toEqual([
+		archivos[0],
+		archivos[1],
+		archivos[1]
+	]);
 });
 
 it('crea el plan como pendiente', async () => {

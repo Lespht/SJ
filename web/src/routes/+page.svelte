@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { cargarFeed, fotosDe, planPendienteAlAzar } from '#lib/feed.js';
+	import { getContext } from 'svelte';
+	import { cargarFeed, feed, fotosDe, planPendienteAlAzar } from '#lib/feed.svelte.js';
 	import Mazo from '#lib/Mazo.svelte';
 	import {
 		fechaRelativa,
@@ -22,9 +22,11 @@
 	let cargando = $state(true);
 	let error = $state(false);
 	let centinela = $state<HTMLDivElement>();
+	let solicitud: Promise<void> | undefined;
+	const abrirHoja = getContext<() => void>('abrirHoja');
 
-	onMount(() => {
-		cargarInicio();
+	$effect(() => {
+		void reiniciar(feed.version);
 	});
 
 	$effect(() => {
@@ -42,24 +44,45 @@
 		return () => observador.disconnect();
 	});
 
-	async function cargarInicio() {
+	async function reiniciar(version: number) {
+		pagina = 1;
+		posts = [];
+		pendiente = undefined;
+		hayMas = false;
+		cargando = true;
+		error = false;
+		await solicitud;
+		if (version === feed.version) solicitud = cargarInicio(version);
+	}
+
+	async function cargarInicio(version: number) {
 		// PocketBase cancela las consultas simultáneas al mismo endpoint de posts.
 		const plan = await planPendienteAlAzar().catch(() => null);
-		void cargarPagina();
-		if (!plan) return;
+		if (version !== feed.version) return;
+		if (plan) void cargarAutor(plan, version);
+		await pedirPagina(version);
+	}
+
+	async function cargarAutor(plan: Post, version: number) {
 		const autor = await pb
 			.collection('users')
 			.getOne<Usuario>(plan.autor)
 			.catch(() => undefined);
-		pendiente = { titulo: plan.titulo, autor: nombre(autor) };
+		if (version === feed.version) pendiente = { titulo: plan.titulo, autor: nombre(autor) };
 	}
 
-	async function cargarPagina() {
+	function cargarPagina() {
+		if (!cargando) solicitud = pedirPagina(feed.version);
+	}
+
+	async function pedirPagina(version: number) {
 		cargando = true;
 		error = false;
 		try {
 			const token = await obtenerTokenArchivo();
+			if (version !== feed.version) return;
 			const { items, hayMas: quedanPosts } = await cargarFeed(pagina);
+			if (version !== feed.version) return;
 			const ids = new Set(posts.map((post) => post.id));
 			const nuevos = items.filter((post) => !ids.has(post.id));
 			for (const post of nuevos) {
@@ -71,9 +94,9 @@
 			hayMas = quedanPosts;
 			pagina += 1;
 		} catch {
-			error = true;
+			if (version === feed.version) error = true;
 		} finally {
-			cargando = false;
+			if (version === feed.version) cargando = false;
 		}
 	}
 </script>
@@ -133,7 +156,9 @@
 			<button type="button" onclick={cargarPagina}>Reintentar</button>
 		</div>
 	{:else if !posts.length}
-		<p class="suave">Todavía no hay fotos. <a href="/fotos">Subir la primera</a></p>
+		<p class="suave">
+			Todavía no hay fotos. <button class="subir" onclick={abrirHoja}>Subir la primera</button>
+		</p>
 	{/if}
 </div>
 
@@ -142,6 +167,13 @@
 {/if}
 
 <style>
+	.subir {
+		padding: 0;
+		background: none;
+		color: var(--acento);
+		font-weight: inherit;
+		text-decoration: underline;
+	}
 	.pendiente {
 		margin-bottom: 1.5rem;
 		padding: 1rem;

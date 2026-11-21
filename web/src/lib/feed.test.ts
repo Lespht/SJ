@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cargarFeed, fotosDe, planPendienteAlAzar } from './feed';
+import { cargarFeed, fotosDe, planPendienteAlAzar } from './feed.svelte';
 import { pb, type Foto, type Post } from './pb.svelte';
 
 afterEach(() => {
