@@ -60,7 +60,6 @@ st, f = req("POST", "/api/collections/fotos/records", A, {"autor": a_id, "post":
 st, _ = req("PATCH", f"{P}/{m['id']}", B, {"texto": "[prueba] editado por B"}); caso("B no edita el texto del momento de A", False, st)
 st, _ = req("PATCH", f"{P}/{m['id']}", A, {"tipo": "plan"}); caso("nadie cambia el tipo", False, st)
 st, _ = req("PATCH", f"{P}/{m['id']}", A, {"autor": b_id}); caso("nadie cambia el autor", False, st)
-st, _ = req("DELETE", f"{P}/{m['id']}", A); caso("A no borra su momento con fotos sin archivar", False, st)
 st, _ = req("PATCH", f"{P}/{m['id']}", B, {"archivado": True, "archivado_en": "2026-11-21 12:00:00.000Z"}); caso("B archiva el momento de A", True, st)
 st, _ = req("DELETE", f"{P}/{m['id']}", B); caso("B no borra definitivamente lo de A", False, st)
 st, _ = req("DELETE", f"{P}/{m['id']}", A); caso("A borra su momento archivado", True, st)
@@ -73,6 +72,27 @@ st, _ = req("PATCH", f"{P}/{p['id']}", B, {"hora": "9:5"}); caso("el plan exige 
 st, _ = req("PATCH", f"{P}/{p['id']}", B, {"fecha": "", "hora": ""}); caso("B quita el día y la hora del plan", True, st)
 st, _ = req("PATCH", f"{P}/{p['id']}", B, {"hecho": True, "titulo": "[prueba] pasta casera"}); caso("B edita y completa el plan de A", True, st)
 st, _ = req("DELETE", f"{P}/{p['id']}", A); caso("A borra su plan sin fotos", True, st)
+
+# NOS-39 · borrar
+F = "/api/collections/fotos/records"
+def foto(token, uid, post):
+    return req("POST", F, token, {"autor": uid, "post": post, "descripcion": "[prueba]"}, {"imagen": ("p.png", PNG, "image/png")})
+st, m2 = req("POST", P, A, {"tipo": "momento", "texto": "[prueba] borrar", "autor": a_id})
+st, f2 = foto(A, a_id, m2["id"])
+st, _ = req("DELETE", f"{F}/{f2['id']}", B); caso("B no borra la foto de A", False, st)
+st, _ = req("DELETE", f"{P}/{m2['id']}", B); caso("B no borra el momento de A", False, st)
+st, _ = req("DELETE", f"{P}/{m2['id']}", A); caso("A borra su momento con fotos sin archivarlo", True, st)
+st, _ = req("GET", f"{F}/{f2['id']}", A); caso("sus fotos se van con el momento (404)", False, st)
+
+st, p2 = req("POST", P, A, {"tipo": "plan", "titulo": "[prueba] salida", "hecho": True, "autor": a_id})
+st, fa = foto(A, a_id, p2["id"])
+st, fb = foto(B, b_id, p2["id"]); caso("B aporta una foto al plan de A", True, st)
+st, _ = req("DELETE", f"{P}/{p2['id']}", A); caso("A no borra su plan si tiene una foto de B", False, st)
+st, _ = req("PATCH", f"{P}/{p2['id']}", A, {"archivado": True, "archivado_en": "2026-11-21 12:00:00.000Z"})
+st, _ = req("DELETE", f"{P}/{p2['id']}", A); caso("ni archivado, si tiene una foto de B", False, st)
+st, _ = req("DELETE", f"{P}/{p2['id']}", B); caso("B no borra el plan que creó A", False, st)
+st, _ = req("DELETE", f"{F}/{fb['id']}", B); caso("B saca su foto del plan", True, st)
+st, _ = req("DELETE", f"{P}/{p2['id']}", A); caso("A borra su plan con solo sus fotos", True, st)
 
 # limpieza (solo en la copia)
 for uid in (a_id, b_id):

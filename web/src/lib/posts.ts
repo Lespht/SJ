@@ -1,5 +1,6 @@
 import { aFechaGuardada } from './calendario.js';
-import { pb, type Post } from './pb.svelte.js';
+import { fotosDe } from './feed.svelte.js';
+import { pb, type Foto, type Post } from './pb.svelte.js';
 
 export const categoriasPlan = [
 	{ valor: 'cita', label: 'Cita' },
@@ -114,4 +115,26 @@ export function restaurar(post: Post) {
 
 export function borrarPost(post: Post) {
 	return pb.collection('posts').delete(post.id);
+}
+
+/**
+ * Por qué no se puede borrar un post ('' si se puede). Misma regla que la base: un momento lo
+ * borra su autor; un plan, solo quien lo creó y si no tiene fotos del otro. Necesita las fotos
+ * expandidas (fotos_via_post).
+ */
+export function motivoParaNoBorrar(post: Post, yo: string): string {
+	if (post.autor !== yo) return 'Solo quien lo subió puede borrarlo.';
+	if (post.tipo === 'plan' && fotosDe(post).some((foto) => foto.autor !== yo)) {
+		return 'Tiene fotos del otro: que saque las suyas, o archivalo.';
+	}
+	return '';
+}
+
+/** Borra una foto. Si era la última de un momento, el momento se va con ella; un plan queda. */
+export async function borrarFoto(foto: Foto, post: Post): Promise<{ postBorrado: boolean }> {
+	await pb.collection('fotos').delete(foto.id);
+	const quedan = fotosDe(post).filter((otra) => otra.id !== foto.id).length;
+	if (post.tipo !== 'momento' || quedan > 0) return { postBorrado: false };
+	await pb.collection('posts').delete(post.id);
+	return { postBorrado: true };
 }

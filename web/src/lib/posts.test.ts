@@ -1,14 +1,17 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import {
 	archivar,
+	borrarFoto,
 	borrarPost,
 	completarPlan,
 	crearMomento,
 	crearPlan,
 	ErrorFotosMomento,
 	fijarFecha,
+	motivoParaNoBorrar,
 	restaurar
 } from './posts';
+import { fotosDe } from './feed.svelte';
 import { pb, type Foto, type Post } from './pb.svelte';
 
 const plan = { id: 'plan1', tipo: 'plan' } as Post;
@@ -212,4 +215,63 @@ it('borra el post por id', async () => {
 	const borrar = vi.spyOn(pb.collection('posts'), 'delete').mockResolvedValue(true);
 	await borrarPost(plan);
 	expect(borrar).toHaveBeenCalledExactlyOnceWith(plan.id);
+});
+
+function conFotos(post: Partial<Post>, autores: string[]): Post {
+	const fotos = autores.map(
+		(autor, i) => ({ id: `f${i}`, autor, created: `${i}` }) as unknown as Foto
+	);
+	return { autor: 'yo', ...post, expand: { fotos_via_post: fotos } } as Post;
+}
+
+it('deja borrar un momento propio aunque tenga fotos', () => {
+	expect(motivoParaNoBorrar(conFotos({ tipo: 'momento' }, ['yo', 'yo']), 'yo')).toBe('');
+});
+
+it('deja borrar un plan propio sin fotos o solo con fotos propias', () => {
+	expect(motivoParaNoBorrar(conFotos({ tipo: 'plan' }, []), 'yo')).toBe('');
+	expect(motivoParaNoBorrar(conFotos({ tipo: 'plan' }, ['yo']), 'yo')).toBe('');
+});
+
+it('no deja borrar un plan propio que tiene fotos del otro, aunque esté archivado', () => {
+	const motivo = 'Tiene fotos del otro: que saque las suyas, o archivalo.';
+	expect(motivoParaNoBorrar(conFotos({ tipo: 'plan' }, ['yo', 'otro']), 'yo')).toBe(motivo);
+	expect(motivoParaNoBorrar(conFotos({ tipo: 'plan', archivado: true }, ['otro']), 'yo')).toBe(
+		motivo
+	);
+});
+
+it('no deja borrar lo que subió el otro', () => {
+	expect(motivoParaNoBorrar(conFotos({ tipo: 'momento', autor: 'otro' }, []), 'yo')).toBe(
+		'Solo quien lo subió puede borrarlo.'
+	);
+});
+
+it('borra una foto y deja el momento si le quedan otras', async () => {
+	const momento = conFotos({ id: 'm1', tipo: 'momento' }, ['yo', 'yo']);
+	const borrarF = vi.spyOn(pb.collection('fotos'), 'delete').mockResolvedValue(true);
+	const borrarP = vi.spyOn(pb.collection('posts'), 'delete').mockResolvedValue(true);
+
+	await expect(borrarFoto(fotosDe(momento)[0], momento)).resolves.toEqual({ postBorrado: false });
+	expect(borrarF).toHaveBeenCalledExactlyOnceWith('f0');
+	expect(borrarP).not.toHaveBeenCalled();
+});
+
+it('al borrar la última foto de un momento, borra también el momento', async () => {
+	const momento = conFotos({ id: 'm1', tipo: 'momento' }, ['yo']);
+	const borrarF = vi.spyOn(pb.collection('fotos'), 'delete').mockResolvedValue(true);
+	const borrarP = vi.spyOn(pb.collection('posts'), 'delete').mockResolvedValue(true);
+
+	await expect(borrarFoto(fotosDe(momento)[0], momento)).resolves.toEqual({ postBorrado: true });
+	expect(borrarF).toHaveBeenCalledBefore(borrarP);
+	expect(borrarP).toHaveBeenCalledExactlyOnceWith('m1');
+});
+
+it('un plan sin fotos sigue existiendo al sacarle la última foto', async () => {
+	const salida = conFotos({ id: 'p1', tipo: 'plan', hecho: true }, ['yo']);
+	vi.spyOn(pb.collection('fotos'), 'delete').mockResolvedValue(true);
+	const borrarP = vi.spyOn(pb.collection('posts'), 'delete').mockResolvedValue(true);
+
+	await expect(borrarFoto(fotosDe(salida)[0], salida)).resolves.toEqual({ postBorrado: false });
+	expect(borrarP).not.toHaveBeenCalled();
 });

@@ -207,7 +207,11 @@
 
 <div class="feed" aria-busy={cargando}>
 	{#each posts as post (post.id)}
-		<PostTarjeta {post} {urls} />
+		<PostTarjeta
+			{post}
+			{urls}
+			alQuitar={() => (posts = posts.filter((otro) => otro.id !== post.id))}
+		/>
 	{/each}
 
 	{#if cargando}

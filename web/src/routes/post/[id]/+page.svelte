@@ -30,7 +30,7 @@
 			<div aria-busy="true">{@render esqueletoPost()}</div>
 		{:then { post, urls }}
 			{#if post.archivado}<p class="suave">Está en el archivo.</p>{/if}
-			<div><PostTarjeta {post} {urls} /></div>
+			<div><PostTarjeta {post} {urls} alQuitar={() => goto('/')} /></div>
 		{:catch error}
 			{#if error instanceof ClientResponseError && error.status === 404}
 				<p>Este recuerdo ya no está.</p>

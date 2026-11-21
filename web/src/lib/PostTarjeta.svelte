@@ -5,12 +5,58 @@
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
 	import { fechaCortaDia } from './calendario.js';
+	import Confirmar from './Confirmar.svelte';
 	import { fotosDe } from './feed.svelte.js';
+	import Icono from './Icono.svelte';
 	import Mazo from './Mazo.svelte';
-	import { fechaRelativa, nombre, type Post } from './pb.svelte.js';
-	import { categoriasPlan } from './posts.js';
+	import { fechaRelativa, nombre, sesion, type Post } from './pb.svelte.js';
+	import { archivar, borrarPost, categoriasPlan, motivoParaNoBorrar } from './posts.js';
 
-	let { post, urls }: { post: Post; urls: Map<string, string> } = $props();
+	let {
+		post,
+		urls,
+		alQuitar
+	}: {
+		post: Post;
+		urls: Map<string, string>;
+		/** Se llama cuando el post se borró o se archivó desde su menú. */
+		alQuitar?: () => void;
+	} = $props();
+
+	const esMio = $derived(!!sesion.usuario && post.autor === sesion.usuario.id);
+	let menuAbierto = $state(false);
+	let confirmando = $state(false);
+	let menu = $state<HTMLElement>();
+
+	const nombreCorto = $derived.by(() => {
+		if (post.tipo === 'plan') return post.titulo;
+		const texto = post.texto.trim();
+		if (!texto) return 'este momento';
+		return texto.length > 40 ? `${texto.slice(0, 40)}…` : texto;
+	});
+
+	$effect(() => {
+		if (!menuAbierto) return;
+		const cerrarFuera = (evento: PointerEvent) => {
+			if (menu && !menu.contains(evento.target as Node)) menuAbierto = false;
+		};
+		const cerrarConEscape = (evento: KeyboardEvent) => {
+			if (evento.key === 'Escape') menuAbierto = false;
+		};
+		window.addEventListener('pointerdown', cerrarFuera);
+		window.addEventListener('keydown', cerrarConEscape);
+		return () => {
+			window.removeEventListener('pointerdown', cerrarFuera);
+			window.removeEventListener('keydown', cerrarConEscape);
+		};
+	});
+
+	function quitarCon(accion: (post: Post) => Promise<unknown>) {
+		return async () => {
+			await accion(post);
+			alQuitar?.();
+		};
+	}
 
 	const esPlan = $derived(post.tipo === 'plan');
 	const pendiente = $derived(esPlan && !post.hecho);
@@ -46,7 +92,45 @@
 				{fechaRelativa(post.fecha || post.created)}
 			{/if}
 		</span>
+		{#if esMio}
+			<div class="opciones" bind:this={menu}>
+				<button
+					type="button"
+					class="fantasma boton-opciones"
+					aria-label="Opciones"
+					aria-haspopup="menu"
+					aria-expanded={menuAbierto}
+					onclick={() => (menuAbierto = !menuAbierto)}
+				>
+					<Icono nombre="opciones" />
+				</button>
+				{#if menuAbierto}
+					<div class="menu" role="menu">
+						<button
+							type="button"
+							class="fantasma"
+							role="menuitem"
+							onclick={() => {
+								menuAbierto = false;
+								confirmando = true;
+							}}
+						>
+							<Icono nombre="borrar" tam={18} /> Borrar
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</header>
+	{#if confirmando && sesion.usuario}
+		<Confirmar
+			titulo={nombreCorto}
+			motivo={motivoParaNoBorrar(post, sesion.usuario.id)}
+			archivar={post.archivado ? undefined : quitarCon(archivar)}
+			borrar={quitarCon(borrarPost)}
+			cerrar={() => (confirmando = false)}
+		/>
+	{/if}
 	{#if fotos.length}
 		<div class="marco-mazo">
 			<Mazo
@@ -117,6 +201,40 @@
 	}
 	.quien {
 		font-weight: 600;
+	}
+	.opciones {
+		position: relative;
+		margin-left: auto;
+	}
+	.boton-opciones {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		color: var(--texto-suave);
+	}
+	.menu {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		z-index: 5;
+		display: grid;
+		min-width: 10rem;
+		padding: 0.25rem;
+		border: 1px solid var(--borde);
+		border-radius: 12px;
+		background: var(--fondo-elevado);
+		box-shadow: var(--sombra-polaroid);
+	}
+	.menu button {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
+		padding: 0 0.75rem;
+		color: var(--peligro);
+		text-align: left;
 	}
 	.post {
 		display: grid;

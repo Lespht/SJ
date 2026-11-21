@@ -6,6 +6,7 @@
 	import { scale } from 'svelte/transition';
 	import { avisoChoque, diaDe, fechaCortaDia, hoyLocal, planesDelDia } from '#lib/calendario.js';
 	import Calendario from '#lib/Calendario.svelte';
+	import Confirmar from '#lib/Confirmar.svelte';
 	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import { nombre, obtenerTokenArchivo, pb, sesion, urlFoto, type Post } from '#lib/pb.svelte.js';
@@ -16,7 +17,8 @@
 		completarPlan,
 		crearPlan,
 		ErrorFotosPlan,
-		fijarFecha
+		fijarFecha,
+		motivoParaNoBorrar
 	} from '#lib/posts.js';
 	import { descargarIcs } from '#lib/ics.js';
 
@@ -194,7 +196,29 @@
 			ocupado = false;
 		}
 	}
+
+	let borrando = $state<Post>();
+
+	/** Para la hoja de confirmación: hace la acción y saca el plan de la lista (los errores los muestra la hoja). */
+	function sacar(plan: Post, accion: (post: Post) => Promise<unknown>) {
+		return async () => {
+			await accion(plan);
+			planes = planes.filter((item) => item.id !== plan.id);
+			if (completando === plan.id) completando = undefined;
+			if (editandoFecha === plan.id) editandoFecha = undefined;
+		};
+	}
 </script>
+
+{#if borrando && sesion.usuario}
+	<Confirmar
+		titulo={borrando.titulo}
+		motivo={motivoParaNoBorrar(borrando, sesion.usuario.id)}
+		archivar={sacar(borrando, archivar)}
+		borrar={sacar(borrando, borrarPost)}
+		cerrar={() => (borrando = undefined)}
+	/>
+{/if}
 
 {#snippet avisoFecha(dia: string, excluirId?: string)}
 	{#await dia && planesDelDia(dia, excluirId).then(avisoChoque, () => '') then aviso}
@@ -295,7 +319,7 @@
 									<button
 										class="icono"
 										disabled={ocupado}
-										onclick={() => quitar(plan, borrarPost)}
+										onclick={() => (borrando = plan)}
 										aria-label="Borrar plan"
 									>
 										<Icono nombre="cerrar" tam={18} />
