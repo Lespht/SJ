@@ -236,24 +236,37 @@
 	}
 	.barra {
 		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
+		bottom: var(--separacion-barra);
+		left: 16px;
+		right: 16px;
 		z-index: 10;
-		height: var(--alto-nav);
-		display: flex;
-		justify-content: center;
-		gap: clamp(1.5rem, 12vw, 5rem);
-		padding: 0.4rem 0 env(safe-area-inset-bottom, 0px);
-		background: var(--fondo);
-		border-top: 1px solid var(--borde);
+		max-width: 420px;
+		height: var(--alto-barra);
+		margin-inline: auto;
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+		padding-inline: 0.5rem;
+		border: 1px solid var(--borde);
+		border-radius: 999px;
+		background: var(--fondo-elevado);
+		background: color-mix(in oklab, var(--fondo-elevado) 80%, transparent);
+		-webkit-backdrop-filter: blur(12px);
+		backdrop-filter: blur(12px);
+		box-shadow: var(--sombra-polaroid);
+	}
+	@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+		.barra {
+			background: var(--fondo-elevado);
+		}
 	}
 	.barra a {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: center;
 		gap: 2px;
-		min-width: 56px;
+		min-width: 0;
 		text-decoration: none;
 		color: var(--texto-suave);
 	}

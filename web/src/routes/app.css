@@ -15,7 +15,9 @@
 	--fuente-titulo: 'Bricolage Grotesque Variable', 'Onest Variable', sans-serif;
 
 	--alto-cabecera: 56px;
-	--alto-nav: calc(60px + env(safe-area-inset-bottom, 0px));
+	--alto-barra: 60px;
+	--separacion-barra: calc(12px + env(safe-area-inset-bottom, 0px));
+	--alto-nav: calc(var(--alto-barra) + var(--separacion-barra));
 	--ancho: 600px;
 	color-scheme: light;
 }
