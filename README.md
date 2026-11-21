@@ -65,6 +65,9 @@ git config core.hooksPath .githooks
 Desde `web/`: `pnpm test` (tests, sin red ni PocketBase), `pnpm lint` (prettier + tipos), `pnpm format`.
 El CI (`.github/workflows/ci.yml`) corre lint, tests, build y `pnpm audit` en cada push.
 
+Reglas de la API (antes de cambiar permisos o migraciones), desde `server/`: `sh tests/probar-reglas.sh`.
+Trabaja sobre una copia temporal de `pb_data` en el puerto 8099; la base real no se toca.
+
 ## Servidor + Meshnet
 
 1. Copiá la carpeta al PC viejo (o cloná el repo y descargá el binario de PocketBase allí).
