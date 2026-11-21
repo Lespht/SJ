@@ -7,7 +7,8 @@
 		obtenerTokenArchivo,
 		urlFoto,
 		type Foto,
-		type Nota
+		type Nota,
+		type Post
 	} from '#lib/pb.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 
@@ -23,6 +24,16 @@
 	let fecha = $state(new Date().toISOString().slice(0, 10));
 	let subiendo = $state(false);
 	let error = $state('');
+	let subidaPendiente:
+		| {
+				archivos: FileList;
+				texto: string;
+				fecha: string;
+				autor: string;
+				post: string;
+				siguiente: number;
+		  }
+		| undefined;
 
 	let abierta = $state<Foto | null>(null);
 	let confirmarBorrado = $state(false);
@@ -101,19 +112,42 @@
 
 	async function subir(e: SubmitEvent) {
 		e.preventDefault();
-		if (!archivos?.length || !sesion.usuario) return;
+		if (subiendo || !archivos?.length || !sesion.usuario) return;
+		const datos = {
+			archivos,
+			texto: descripcion,
+			fecha: `${fecha} 12:00:00.000Z`,
+			autor: sesion.usuario.id
+		};
 		subiendo = true;
 		error = '';
 		try {
-			// Una foto = un registro. Se pueden elegir varias a la vez.
-			for (const archivo of archivos) {
+			let lote = subidaPendiente;
+			if (
+				!lote ||
+				lote.archivos !== datos.archivos ||
+				lote.texto !== datos.texto ||
+				lote.fecha !== datos.fecha ||
+				lote.autor !== datos.autor
+			) {
+				const post = await pb.collection('posts').create<Post>({
+					tipo: 'momento',
+					texto: datos.texto,
+					fecha: datos.fecha,
+					autor: datos.autor
+				});
+				lote = subidaPendiente = { ...datos, post: post.id, siguiente: 0 };
+			}
+			for (; lote.siguiente < lote.archivos.length; lote.siguiente += 1) {
 				const form = new FormData();
-				form.append('imagen', archivo);
-				form.append('descripcion', descripcion);
-				form.append('fecha', `${fecha} 12:00:00.000Z`);
-				form.append('autor', sesion.usuario.id);
+				form.append('imagen', lote.archivos[lote.siguiente]);
+				form.append('descripcion', lote.texto);
+				form.append('fecha', lote.fecha);
+				form.append('autor', lote.autor);
+				form.append('post', lote.post);
 				await pb.collection('fotos').create(form);
 			}
+			subidaPendiente = undefined;
 			descripcion = '';
 			archivos = null;
 			(e.target as HTMLFormElement).reset();
@@ -145,14 +179,15 @@
 <h1>Fotos</h1>
 
 <form class="tarjeta subir" onsubmit={subir}>
-	<input type="file" accept="image/*" multiple bind:files={archivos} required />
+	<input type="file" accept="image/*" multiple bind:files={archivos} required disabled={subiendo} />
 	<input
 		type="text"
 		placeholder="Descripción (opcional)"
 		bind:value={descripcion}
 		maxlength="500"
+		disabled={subiendo}
 	/>
-	<input type="date" bind:value={fecha} />
+	<input type="date" bind:value={fecha} disabled={subiendo} />
 	<button disabled={subiendo || !archivos?.length}>
 		{subiendo
 			? 'Subiendo…'
