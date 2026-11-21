@@ -174,3 +174,20 @@ export async function borrarFoto(foto: Foto, post: Post): Promise<{ postBorrado:
 	await pb.collection('posts').delete(post.id);
 	return { postBorrado: true };
 }
+
+/** Guarda un momento propio en un plan hecho (las descartadas), o lo saca con null. */
+export function guardarEnPlan(momento: Post, plan: Post | null): Promise<Post> {
+	return pb
+		.collection('posts')
+		.update<Post>(momento.id, { descartada_en: plan?.id ?? '' }, { expand: EXPAND_POST });
+}
+
+/** Planes hechos sin archivar, para elegir dónde guardar un momento. */
+export async function cargarPlanesHechos(): Promise<Post[]> {
+	const { items } = await pb.collection('posts').getList<Post>(1, 50, {
+		filter: "tipo = 'plan' && hecho = true && archivado = false",
+		sort: '-fecha,-created',
+		requestKey: 'planes-hechos'
+	});
+	return items;
+}

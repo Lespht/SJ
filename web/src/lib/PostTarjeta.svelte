@@ -7,7 +7,7 @@
 	import { fechaCortaDia } from './calendario.js';
 	import Confirmar from './Confirmar.svelte';
 	import EditarPost from './EditarPost.svelte';
-	import { feed, fotosDe, respuestaDe } from './feed.svelte.js';
+	import { descartadasDe, feed, fotosDe, respuestaDe } from './feed.svelte.js';
 	import Hoja from './Hoja.svelte';
 	import Icono from './Icono.svelte';
 	import Mazo from './Mazo.svelte';
@@ -73,6 +73,7 @@
 	const puedeResponder = $derived(
 		!!sesion.usuario && !esMio && !esPlan && !post.respuesta_a && !respuesta
 	);
+	const descartadas = $derived(esPlan ? descartadasDe(post) : []);
 	const pendiente = $derived(esPlan && !post.hecho);
 	const categoria = $derived(categoriasPlan.find(({ valor }) => valor === post.categoria)?.label);
 	const fotos = $derived(fotosDe(post));
@@ -195,7 +196,28 @@
 		{#each notas as nota (nota.id)}
 			<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
 		{/each}
+		{#if post.descartada_en}
+			<a class="guardado suave" href={`/post/${post.descartada_en}`}>
+				Una de las descartadas de «{post.expand?.descartada_en?.titulo ?? 'un plan'}»
+			</a>
+		{/if}
 	</div>
+	{#if descartadas.length}
+		<div class="descartadas">
+			<span class="suave">Las descartadas ({descartadas.length})</span>
+			<div class="tira-descartadas">
+				{#each descartadas as momento (momento.id)}
+					{@const foto = fotosDe(momento)[0]}
+					{@const texto = momento.texto.trim() || 'Momento'}
+					<a href={`/post/${momento.id}`} aria-label={foto ? undefined : texto}>
+						{#if foto}
+							<img src={urls.get(foto.id) ?? ''} alt={texto} loading="lazy" />
+						{/if}
+					</a>
+				{/each}
+			</div>
+		</div>
+	{/if}
 	{#if respuestaVisible}
 		{@const fotosRespuesta = fotosDe(respuestaVisible)}
 		<a class="respuesta polaroid" href={`/post/${respuestaVisible.id}`}>
@@ -341,6 +363,40 @@
 		margin: 0;
 		font-family: var(--fuente-titulo);
 		font-size: 1.125rem;
+	}
+	.guardado {
+		font-size: 0.85rem;
+	}
+	/* Las descartadas: un agregado, no lo principal; miniaturas chicas en una tira. */
+	.descartadas {
+		display: grid;
+		gap: 0.4rem;
+		margin: 0 0.75rem;
+		padding-top: 0.6rem;
+		border-top: 1px dashed var(--borde);
+		font-size: 0.85rem;
+	}
+	.tira-descartadas {
+		display: flex;
+		gap: 0.4rem;
+		overflow-x: auto;
+		padding-bottom: 0.2rem;
+	}
+	.tira-descartadas a {
+		flex: none;
+		width: 52px;
+		height: 52px;
+		overflow: hidden;
+		border: 3px solid var(--fondo-elevado);
+		border-radius: 3px;
+		background: var(--fondo-elevado);
+		box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+	}
+	.tira-descartadas img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 	.etiqueta-plan {
 		justify-self: start;

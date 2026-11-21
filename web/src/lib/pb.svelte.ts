@@ -44,11 +44,15 @@ export type Post = RecordModel & {
 	archivado_en: string;
 	autor: string;
 	respuesta_a: string;
+	/** Plan hecho en el que se guardó este momento (las descartadas); vacío si está suelto. */
+	descartada_en: string;
 	expand?: {
 		autor?: Usuario;
 		fotos_via_post?: Foto[];
 		respuesta_a?: Post;
 		posts_via_respuesta_a?: Post | Post[];
+		descartada_en?: Post;
+		posts_via_descartada_en?: Post[];
 	};
 };
 

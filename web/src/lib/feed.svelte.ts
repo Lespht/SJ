@@ -12,11 +12,16 @@ export function refrescarInicio(): void {
 
 export const EXPAND_POST =
 	'autor,fotos_via_post,fotos_via_post.notas_via_foto,fotos_via_post.notas_via_foto.autor,' +
-	'posts_via_respuesta_a,posts_via_respuesta_a.autor,posts_via_respuesta_a.fotos_via_post,respuesta_a.autor';
+	'posts_via_respuesta_a,posts_via_respuesta_a.autor,posts_via_respuesta_a.fotos_via_post,respuesta_a.autor,' +
+	'posts_via_descartada_en,posts_via_descartada_en.fotos_via_post,descartada_en';
 
 export async function cargarFeed(pagina: number): Promise<{ items: Post[]; hayMas: boolean }> {
 	const { items, page, totalPages } = await pb.collection('posts').getList<Post>(pagina, 10, {
-		filter: "archivado = false && respuesta_a = '' && (tipo = 'momento' || hecho = true)",
+		// Las descartadas viven dentro de su plan; una respuesta va debajo de su original, salvo que el
+		// original esté archivado (si no, la respuesta del otro desaparecería del feed).
+		filter:
+			"archivado = false && descartada_en = '' && (respuesta_a = '' || respuesta_a.archivado = true) && " +
+			"(tipo = 'momento' || hecho = true)",
 		sort: '-fecha,-created',
 		expand: EXPAND_POST
 	});
@@ -38,11 +43,21 @@ export function respuestaDe(post: Post): Post | undefined {
 	return Array.isArray(respuesta) ? respuesta[0] : respuesta;
 }
 
+/** Momentos guardados en este plan (las descartadas), sin archivar, del más viejo al más nuevo. */
+export function descartadasDe(post: Post): Post[] {
+	return (post.expand?.posts_via_descartada_en ?? [])
+		.filter((momento) => !momento.archivado)
+		.sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+/** Fotos que se ven con el post: las suyas, las de su respuesta y la primera de cada descartada. */
 export function fotosDelHilo(post: Post): Foto[] {
 	const respuesta = respuestaDe(post);
-	return respuesta && !respuesta.archivado
-		? [...fotosDe(post), ...fotosDe(respuesta)]
-		: fotosDe(post);
+	return [
+		...fotosDe(post),
+		...(respuesta && !respuesta.archivado ? fotosDe(respuesta) : []),
+		...descartadasDe(post).flatMap((momento) => fotosDe(momento).slice(0, 1))
+	];
 }
 
 export async function proximoPlan(hoy: string): Promise<Post | null> {

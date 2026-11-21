@@ -10,7 +10,9 @@ import {
 	editarPost,
 	ErrorFotosMomento,
 	ErrorFotosPlan,
+	cargarPlanesHechos,
 	fijarFecha,
+	guardarEnPlan,
 	motivoParaNoBorrar,
 	restaurar
 } from './posts';
@@ -365,4 +367,29 @@ it('un plan sin fotos sigue existiendo al sacarle la última foto', async () => 
 
 	await expect(borrarFoto(fotosDe(salida)[0], salida)).resolves.toEqual({ postBorrado: false });
 	expect(borrarP).not.toHaveBeenCalled();
+});
+
+it('guarda un momento en un plan y lo saca', async () => {
+	const momento = { id: 'm1', tipo: 'momento' } as Post;
+	const actualizar = vi.spyOn(pb.collection('posts'), 'update').mockResolvedValue(momento);
+
+	await guardarEnPlan(momento, { id: 'p1' } as Post);
+	await guardarEnPlan(momento, null);
+	expect(actualizar.mock.calls).toEqual([
+		['m1', { descartada_en: 'p1' }, { expand: EXPAND_POST }],
+		['m1', { descartada_en: '' }, { expand: EXPAND_POST }]
+	]);
+});
+
+it('lista los planes hechos sin archivar, los más recientes primero', async () => {
+	const getList = vi
+		.spyOn(pb.collection('posts'), 'getList')
+		.mockResolvedValue({ page: 1, perPage: 50, totalItems: 0, totalPages: 0, items: [] });
+
+	await expect(cargarPlanesHechos()).resolves.toEqual([]);
+	expect(getList).toHaveBeenCalledExactlyOnceWith(1, 50, {
+		filter: "tipo = 'plan' && hecho = true && archivado = false",
+		sort: '-fecha,-created',
+		requestKey: 'planes-hechos'
+	});
 });

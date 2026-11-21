@@ -4,7 +4,8 @@
 	import { fly } from 'svelte/transition';
 	import { diaDe } from './calendario.js';
 	import Confirmar from './Confirmar.svelte';
-	import { cargarPost, fotosDe } from './feed.svelte.js';
+	import ElegirPlan from './ElegirPlan.svelte';
+	import { cargarPost, feed, fotosDe } from './feed.svelte.js';
 	import Icono from './Icono.svelte';
 	import { obtenerTokenArchivo, sesion, urlFoto, type Foto, type Post } from './pb.svelte.js';
 	import {
@@ -13,7 +14,8 @@
 		categoriasPlan,
 		editarPost,
 		ErrorFotosMomento,
-		ErrorFotosPlan
+		ErrorFotosPlan,
+		guardarEnPlan
 	} from './posts.js';
 
 	let {
@@ -46,6 +48,29 @@
 	const fotos = $derived(fotosDe(actual));
 	const retomando = $derived(!!reintentarFotos || fotosPorActualizar);
 	const yo = $derived(sesion.usuario?.id);
+	// Las descartadas: un momento propio (que no sea respuesta) se guarda en un plan hecho.
+	const puedeGuardarEnPlan = $derived(!esPlan && actual.autor === yo && !actual.respuesta_a);
+	let eligiendoPlan = $state(false);
+
+	async function moverAPlan(plan: Post | null) {
+		const actualizado = await guardarEnPlan(actual, plan);
+		aplicar(actualizado);
+		// El momento entra o sale del feed y la fila de descartadas de su plan cambia: se recarga.
+		feed.version += 1;
+	}
+
+	async function sacarDelPlan() {
+		if (ocupado) return;
+		ocupado = true;
+		error = '';
+		try {
+			await moverAPlan(null);
+		} catch {
+			error = 'No se pudo sacar del plan.';
+		} finally {
+			ocupado = false;
+		}
+	}
 
 	onMount(() => {
 		const modal = dialogo;
@@ -179,6 +204,21 @@
 					</label>
 				{/if}
 			</div>
+			{#if puedeGuardarEnPlan}
+				<div class="en-plan">
+					{#if actual.descartada_en}
+						<p>
+							Guardado en «{actual.expand?.descartada_en?.titulo ?? 'un plan'}», con las
+							descartadas.
+						</p>
+						<button type="button" class="fantasma" onclick={sacarDelPlan}>Sacar del plan</button>
+					{:else}
+						<button type="button" class="fantasma" onclick={() => (eligiendoPlan = true)}>
+							Guardar en un plan…
+						</button>
+					{/if}
+				</div>
+			{/if}
 			{#if fotos.length}
 				<div class="fotos">
 					{#each fotos as foto, i (foto.id)}
@@ -219,6 +259,10 @@
 		</button>
 	</form>
 </dialog>
+
+{#if eligiendoPlan}
+	<ElegirPlan elegir={(plan) => moverAPlan(plan)} cerrar={() => (eligiendoPlan = false)} />
+{/if}
 
 {#if confirmando}
 	{@const foto = confirmando}
@@ -296,6 +340,22 @@
 		grid-auto-flow: column;
 		grid-auto-columns: minmax(0, 1fr);
 		gap: 0.65rem;
+	}
+	.en-plan {
+		display: grid;
+		gap: 0.25rem;
+		padding: 0.6rem 0.75rem;
+		border: 1px dashed var(--borde);
+		border-radius: 10px;
+	}
+	.en-plan p {
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+	.en-plan button {
+		justify-self: start;
+		min-height: 44px;
+		padding-inline: 0;
 	}
 	.fotos {
 		display: flex;

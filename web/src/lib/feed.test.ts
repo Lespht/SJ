@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	cargarFeed,
 	cargarPost,
+	descartadasDe,
 	EXPAND_POST,
 	feed,
 	fotosDe,
+	fotosDelHilo,
 	planPendienteAlAzar,
 	proximoPlan,
 	refrescarInicio
@@ -41,13 +43,15 @@ function simularPagina(page: number, totalPages: number, items: Post[] = [], per
 }
 
 describe('cargarFeed', () => {
-	it('pide momentos y planes hechos sin archivar, con sus fotos y notas', async () => {
+	it('pide momentos y planes hechos sin archivar ni descartados, con sus fotos y notas', async () => {
 		const items = [{ id: 'p1', tipo: 'momento' } as Post];
 		const getList = simularPagina(1, 2, items);
 
 		await expect(cargarFeed(1)).resolves.toEqual({ items, hayMas: true });
 		expect(getList).toHaveBeenCalledExactlyOnceWith(1, 10, {
-			filter: "archivado = false && respuesta_a = '' && (tipo = 'momento' || hecho = true)",
+			filter:
+				"archivado = false && descartada_en = '' && (respuesta_a = '' || respuesta_a.archivado = true) && " +
+				"(tipo = 'momento' || hecho = true)",
 			sort: '-fecha,-created',
 			expand: EXPAND_POST
 		});
@@ -78,7 +82,10 @@ describe('cargarPost', () => {
 				'posts_via_respuesta_a',
 				'posts_via_respuesta_a.autor',
 				'posts_via_respuesta_a.fotos_via_post',
-				'respuesta_a.autor'
+				'respuesta_a.autor',
+				'posts_via_descartada_en',
+				'posts_via_descartada_en.fotos_via_post',
+				'descartada_en'
 			])
 		);
 	});
@@ -148,5 +155,44 @@ describe('planPendienteAlAzar', () => {
 	it('devuelve null cuando no hay planes pendientes', async () => {
 		simularPagina(1, 0, [], 1);
 		await expect(planPendienteAlAzar()).resolves.toBeNull();
+	});
+});
+
+describe('descartadasDe', () => {
+	const foto = (id: string, created: string) => ({ id, created }) as unknown as Foto;
+	const momento = (id: string, fecha: string, archivado = false, fotos: Foto[] = []) =>
+		({
+			id,
+			tipo: 'momento',
+			fecha,
+			archivado,
+			expand: { fotos_via_post: fotos }
+		}) as unknown as Post;
+
+	it('devuelve las descartadas sin archivar, de la más vieja a la más nueva', () => {
+		const vieja = momento('m1', '2026-11-20 12:00:00.000Z');
+		const nueva = momento('m2', '2026-11-21 12:00:00.000Z');
+		const archivada = momento('m3', '2026-11-19 12:00:00.000Z', true);
+		const plan = {
+			tipo: 'plan',
+			expand: { posts_via_descartada_en: [nueva, archivada, vieja] }
+		} as unknown as Post;
+
+		expect(descartadasDe(plan)).toEqual([vieja, nueva]);
+		expect(descartadasDe({ tipo: 'plan' } as Post)).toEqual([]);
+	});
+
+	it('suma la primera foto de cada descartada a las fotos del hilo', () => {
+		const propia = foto('f1', '1');
+		const d1 = momento('m1', '2026-11-20 12:00:00.000Z', false, [
+			foto('d1b', '2'),
+			foto('d1a', '1')
+		]);
+		const plan = {
+			tipo: 'plan',
+			expand: { fotos_via_post: [propia], posts_via_descartada_en: [d1] }
+		} as unknown as Post;
+
+		expect(fotosDelHilo(plan).map((f) => f.id)).toEqual(['f1', 'd1a']);
 	});
 });
