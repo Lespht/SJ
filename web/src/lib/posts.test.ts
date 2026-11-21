@@ -1,17 +1,20 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import {
+	agregarFotos,
 	archivar,
 	borrarFoto,
 	borrarPost,
 	completarPlan,
 	crearMomento,
 	crearPlan,
+	editarPost,
 	ErrorFotosMomento,
+	ErrorFotosPlan,
 	fijarFecha,
 	motivoParaNoBorrar,
 	restaurar
 } from './posts';
-import { fotosDe } from './feed.svelte';
+import { EXPAND_POST, fotosDe } from './feed.svelte';
 import { pb, type Foto, type Post } from './pb.svelte';
 
 const plan = { id: 'plan1', tipo: 'plan' } as Post;
@@ -21,6 +24,78 @@ const fechaGuardada = '2026-11-21 12:00:00.000Z';
 afterEach(() => {
 	vi.restoreAllMocks();
 	vi.useRealTimers();
+});
+
+it('edita únicamente el texto y la fecha de un momento', async () => {
+	const momento = { id: 'm1', tipo: 'momento' } as Post;
+	const actualizar = vi.spyOn(pb.collection('posts'), 'update').mockResolvedValue(momento);
+
+	await expect(
+		editarPost(momento, { texto: 'hola', dia: '2026-11-20', titulo: 'x', categoria: 'cita' })
+	).resolves.toBe(momento);
+	expect(actualizar).toHaveBeenCalledExactlyOnceWith(
+		momento.id,
+		{ texto: 'hola', fecha: '2026-11-20 12:00:00.000Z' },
+		{ expand: EXPAND_POST }
+	);
+});
+
+it('edita el título, el día y la hora de un plan', async () => {
+	const actualizar = vi.spyOn(pb.collection('posts'), 'update').mockResolvedValue(plan);
+
+	await editarPost(plan, { titulo: 'Cena', dia: '2026-11-28', hora: '21:00' });
+	expect(actualizar).toHaveBeenCalledExactlyOnceWith(
+		plan.id,
+		{ titulo: 'Cena', fecha: '2026-11-28 12:00:00.000Z', hora: '21:00' },
+		{ expand: EXPAND_POST }
+	);
+});
+
+it('borra también la hora si se quita el día del plan', async () => {
+	const actualizar = vi.spyOn(pb.collection('posts'), 'update').mockResolvedValue(plan);
+
+	await editarPost(plan, { dia: '', hora: '21:00' });
+	expect(actualizar).toHaveBeenCalledExactlyOnceWith(
+		plan.id,
+		{ fecha: '', hora: '' },
+		{ expand: EXPAND_POST }
+	);
+});
+
+it('agrega las fotos al mismo post con el usuario que las sube y la fecha del post', async () => {
+	const salida = { ...plan, fecha: fechaGuardada };
+	const subir = vi.spyOn(pb.collection('fotos'), 'create').mockResolvedValue({ id: 'f1' } as Foto);
+	const archivos = ['una.jpg', 'dos.jpg'].map((nombre) => new File(['foto'], nombre));
+
+	await expect(agregarFotos(salida, archivos, 'u1')).resolves.toBe(salida);
+	expect(subir.mock.calls.map(([form]) => Object.fromEntries(form as FormData))).toEqual(
+		archivos.map((imagen) => ({ imagen, post: salida.id, autor: 'u1', fecha: fechaGuardada }))
+	);
+});
+
+it('reintenta desde la foto que falló y usa hoy para un plan sin fecha', async () => {
+	vi.useFakeTimers();
+	vi.setSystemTime(new Date(2026, 10, 21, 17, 0));
+	const salida = { ...plan, fecha: '' };
+	const subir = vi
+		.spyOn(pb.collection('fotos'), 'create')
+		.mockResolvedValue({ id: 'f1' } as Foto)
+		.mockResolvedValueOnce({ id: 'f1' } as Foto)
+		.mockRejectedValueOnce(new Error('Falló la segunda foto'));
+	const archivos = ['una.jpg', 'dos.jpg'].map((nombre) => new File(['foto'], nombre));
+
+	const fallo = await agregarFotos(salida, archivos, 'u1').catch((error: unknown) => error);
+	if (!(fallo instanceof ErrorFotosPlan))
+		throw new Error('Faltó el error de subida', { cause: fallo });
+	await expect(fallo.reintentar()).resolves.toBe(salida);
+	expect(subir.mock.calls.map(([form]) => Object.fromEntries(form as FormData))).toEqual(
+		[archivos[0], archivos[1], archivos[1]].map((imagen) => ({
+			imagen,
+			post: salida.id,
+			autor: 'u1',
+			fecha: fechaGuardada
+		}))
+	);
 });
 
 it('crea un solo momento y le vincula sus dos fotos', async () => {

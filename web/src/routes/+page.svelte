@@ -4,6 +4,7 @@
 	import {
 		cargarFeed,
 		feed,
+		fotosDe,
 		planPendienteAlAzar,
 		proximoPlan,
 		refrescarInicio
@@ -131,6 +132,15 @@
 		if (!cargando) solicitud = pedirPagina(feed.version);
 	}
 
+	async function cambiarPost(actualizado: Post) {
+		const nuevas = fotosDe(actualizado).filter((foto) => !urls.has(foto.id));
+		if (nuevas.length) {
+			const token = await obtenerTokenArchivo().catch(() => null);
+			if (token) for (const foto of nuevas) urls.set(foto.id, urlFoto(foto, token, '800x0'));
+		}
+		posts = posts.map((post) => (post.id === actualizado.id ? actualizado : post));
+	}
+
 	async function pedirPagina(version: number) {
 		cargando = true;
 		error = false;
@@ -210,6 +220,7 @@
 		<PostTarjeta
 			{post}
 			{urls}
+			alCambiar={cambiarPost}
 			alQuitar={() => (posts = posts.filter((otro) => otro.id !== post.id))}
 		/>
 	{/each}

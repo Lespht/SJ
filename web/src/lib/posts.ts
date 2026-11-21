@@ -1,5 +1,5 @@
-import { aFechaGuardada } from './calendario.js';
-import { fotosDe } from './feed.svelte.js';
+import { aFechaGuardada, hoyLocal } from './calendario.js';
+import { EXPAND_POST, fotosDe } from './feed.svelte.js';
 import { pb, type Foto, type Post } from './pb.svelte.js';
 
 export const categoriasPlan = [
@@ -29,6 +29,29 @@ export function fijarFecha(plan: Post, dia: string, hora: string): Promise<Post>
 		fecha: aFechaGuardada(dia),
 		hora: dia ? hora : ''
 	});
+}
+
+export function editarPost(
+	post: Post,
+	{
+		titulo,
+		texto,
+		categoria,
+		dia,
+		hora
+	}: Partial<Pick<Post, 'titulo' | 'texto' | 'categoria' | 'hora'>> & {
+		dia?: string;
+	}
+): Promise<Post> {
+	const datos: Partial<Pick<Post, 'titulo' | 'texto' | 'categoria' | 'fecha' | 'hora'>> = {};
+	if (texto !== undefined) datos.texto = texto;
+	if (dia !== undefined) datos.fecha = aFechaGuardada(dia);
+	if (post.tipo === 'plan') {
+		if (titulo !== undefined) datos.titulo = titulo;
+		if (categoria !== undefined) datos.categoria = categoria;
+		if (hora !== undefined || dia === '') datos.hora = (dia ?? post.fecha) ? hora : '';
+	}
+	return pb.collection('posts').update<Post>(post.id, datos, { expand: EXPAND_POST });
 }
 
 export class ErrorFotosPlan extends Error {
@@ -74,6 +97,12 @@ export async function completarPlan(plan: Post, archivos: File[], fecha: string,
 		.collection('posts')
 		.update<Post>(plan.id, { hecho: true, fecha: cuando });
 	return subirFotos(actualizado, archivos, { fecha: cuando, autor }, ErrorFotosPlan);
+}
+
+export function agregarFotos(post: Post, archivos: File[], autor: string): Promise<Post> {
+	const fecha = post.fecha || aFechaGuardada(hoyLocal());
+	const ErrorFotos = post.tipo === 'momento' ? ErrorFotosMomento : ErrorFotosPlan;
+	return subirFotos(post, archivos, { fecha, autor }, ErrorFotos);
 }
 
 async function subirFotos(

@@ -6,6 +6,7 @@
 	import Avatar from './Avatar.svelte';
 	import { fechaCortaDia } from './calendario.js';
 	import Confirmar from './Confirmar.svelte';
+	import EditarPost from './EditarPost.svelte';
 	import { fotosDe } from './feed.svelte.js';
 	import Icono from './Icono.svelte';
 	import Mazo from './Mazo.svelte';
@@ -15,18 +16,22 @@
 	let {
 		post,
 		urls,
-		alQuitar
+		alQuitar,
+		alCambiar
 	}: {
 		post: Post;
 		urls: Map<string, string>;
 		/** Se llama cuando el post se borró o se archivó desde su menú. */
 		alQuitar?: () => void;
+		alCambiar?: (post: Post) => void;
 	} = $props();
 
 	const esMio = $derived(!!sesion.usuario && post.autor === sesion.usuario.id);
 	let menuAbierto = $state(false);
 	let confirmando = $state(false);
+	let editando = $state(false);
 	let menu = $state<HTMLElement>();
+	let botonOpciones = $state<HTMLButtonElement>();
 
 	const nombreCorto = $derived.by(() => {
 		if (post.tipo === 'plan') return post.titulo;
@@ -92,11 +97,12 @@
 				{fechaRelativa(post.fecha || post.created)}
 			{/if}
 		</span>
-		{#if esMio}
+		{#if sesion.usuario && (esMio || esPlan)}
 			<div class="opciones" bind:this={menu}>
 				<button
 					type="button"
 					class="fantasma boton-opciones"
+					bind:this={botonOpciones}
 					aria-label="Opciones"
 					aria-haspopup="menu"
 					aria-expanded={menuAbierto}
@@ -112,11 +118,25 @@
 							role="menuitem"
 							onclick={() => {
 								menuAbierto = false;
-								confirmando = true;
+								botonOpciones?.focus();
+								editando = true;
 							}}
 						>
-							<Icono nombre="borrar" tam={18} /> Borrar
+							<Icono nombre="editar" tam={18} /> Editar
 						</button>
+						{#if esMio}
+							<button
+								type="button"
+								class="fantasma"
+								role="menuitem"
+								onclick={() => {
+									menuAbierto = false;
+									confirmando = true;
+								}}
+							>
+								<Icono nombre="borrar" tam={18} /> Borrar
+							</button>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -131,15 +151,25 @@
 			cerrar={() => (confirmando = false)}
 		/>
 	{/if}
+	{#if editando && sesion.usuario && (esMio || esPlan)}
+		<EditarPost
+			{post}
+			cerrar={() => (editando = false)}
+			alGuardar={(actualizado) => alCambiar?.(actualizado)}
+			alQuitar={() => alQuitar?.()}
+		/>
+	{/if}
 	{#if fotos.length}
 		<div class="marco-mazo">
-			<Mazo
-				fotos={fotos.map((foto) => ({
-					id: foto.id,
-					src: urls.get(foto.id) ?? '',
-					alt: foto.descripcion
-				}))}
-			/>
+			{#key fotos.map((foto) => foto.id).join(',')}
+				<Mazo
+					fotos={fotos.map((foto) => ({
+						id: foto.id,
+						src: urls.get(foto.id) ?? '',
+						alt: foto.descripcion
+					}))}
+				/>
+			{/key}
 			{#if esPlan}<span class="cinta" aria-hidden="true"></span>{/if}
 		</div>
 	{/if}
