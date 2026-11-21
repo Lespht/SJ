@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { cargarFeed, fotosDe, planPendienteAlAzar } from '#lib/feed.js';
+	import Mazo from '#lib/Mazo.svelte';
 	import {
 		fechaCorta,
 		nombre,
@@ -13,7 +14,6 @@
 
 	let posts = $state<Post[]>([]);
 	let pendiente = $state<{ titulo: string; autor: string }>();
-	const fotosVisibles = $state<Record<string, number>>({});
 	// URL fija por foto: el token de archivo cambia cada 90 s, y si las URLs dependieran
 	// del token actual, cargar otra página haría bajar de nuevo todas las fotos ya vistas.
 	const urls = new Map<string, string>();
@@ -92,40 +92,17 @@
 		{@const notas = fotos
 			.flatMap((foto) => foto.expand?.notas_via_foto ?? [])
 			.sort((a, b) => a.created.localeCompare(b.created))}
-		<article class="polaroid">
+		<article class="post">
 			{#if fotos.length}
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (permite recorrer el carrusel con el teclado) -->
-				<div
-					class:carrusel={fotos.length > 1}
-					role={fotos.length > 1 ? 'region' : undefined}
-					aria-label={fotos.length > 1 ? 'Fotos del post' : undefined}
-					tabindex={fotos.length > 1 ? 0 : undefined}
-					onscroll={({ currentTarget }) => {
-						fotosVisibles[post.id] = Math.round(
-							currentTarget.scrollLeft / currentTarget.clientWidth
-						);
-					}}
-				>
-					{#each fotos as foto (foto.id)}
-						<img
-							class="imagen"
-							src={urls.get(foto.id)}
-							alt={foto.descripcion}
-							loading="lazy"
-							onload={(e) => e.currentTarget.classList.add('cargada')}
-						/>
-					{/each}
-				</div>
-				{#if fotos.length > 1}
-					{@const visible = fotosVisibles[post.id] ?? 0}
-					<div class="puntos" role="img" aria-label={`Foto ${visible + 1} de ${fotos.length}`}>
-						{#each fotos as foto, i (foto.id)}
-							<span class:activo={i === visible}></span>
-						{/each}
-					</div>
-				{/if}
+				<Mazo
+					fotos={fotos.map((foto) => ({
+						id: foto.id,
+						src: urls.get(foto.id) ?? '',
+						alt: foto.descripcion
+					}))}
+				/>
 			{/if}
-			<div class="pie">
+			<div class="pie" class:polaroid={!fotos.length}>
 				{#if post.tipo === 'plan'}<h2 class="titulo">{post.titulo}</h2>{/if}
 				{#if post.texto}<p class="texto">{post.texto}</p>{/if}
 				<p class="suave">{nombre(post.expand?.autor)}, {fechaCorta(post.fecha)}</p>
@@ -138,7 +115,7 @@
 
 	{#if cargando}
 		{#each Array(posts.length ? 1 : 3) as _}
-			<div class="polaroid" aria-hidden="true">
+			<div class="polaroid esqueleto" aria-hidden="true">
 				<div class="imagen brillo"></div>
 				<div class="pie">
 					<div class="linea brillo"></div>
@@ -174,55 +151,31 @@
 		grid-template-columns: minmax(0, 1fr);
 		gap: 1.5rem;
 	}
-	.polaroid:nth-child(odd) {
+	/* Giro alterno de cada post, como fotos sueltas sobre la mesa. */
+	.post:nth-child(odd) :global(.mazo),
+	.esqueleto:nth-child(odd) {
 		transform: rotate(-0.8deg);
 	}
-	.polaroid:nth-child(even) {
+	.post:nth-child(even) :global(.mazo),
+	.esqueleto:nth-child(even) {
 		transform: rotate(0.7deg);
 	}
-	.carrusel {
-		display: flex;
-		overflow-x: auto;
-		scroll-snap-type: x mandatory;
-		scrollbar-width: none;
+	.post {
+		display: grid;
+		gap: 0.6rem;
 	}
-	.carrusel .imagen {
-		flex: 0 0 100%;
-		scroll-snap-align: start;
-	}
-	.puntos {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 0.4rem;
-		padding-top: 0.65rem;
-	}
-	.puntos span {
-		width: 0.4rem;
-		height: 0.4rem;
-		border-radius: 50%;
-		background: var(--borde);
-	}
-	.puntos .activo {
-		background: var(--acento);
+	.pie.polaroid {
+		padding: 1rem;
 	}
 	.imagen {
 		display: block;
 		width: 100%;
 		aspect-ratio: 4 / 5;
 	}
-	img {
-		object-fit: cover;
-		opacity: 0;
-		transition: opacity 300ms;
-	}
-	img:global(.cargada) {
-		opacity: 1;
-	}
 	.pie {
 		display: grid;
 		gap: 0.25rem;
-		padding: 0.65rem 0.4rem 0;
+		padding: 0 0.75rem;
 		overflow-wrap: anywhere;
 	}
 	.pie p {

@@ -126,6 +126,8 @@
 		max-width: var(--ancho);
 		margin: 0 auto;
 		padding: 1rem 1rem calc(var(--alto-nav) + 1rem);
+		/* Una polaroid que sale volando del mazo no debe ensanchar la página. */
+		overflow-x: clip;
 	}
 	.barra {
 		position: fixed;
