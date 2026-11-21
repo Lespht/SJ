@@ -1,11 +1,48 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { pb, sesion, nombre, type Mensaje, type Usuario } from '#lib/pb.svelte.js';
+	import Icono from '#lib/Icono.svelte';
+	import { cambiarTema, cargarTema, ID_CHAT, TEMAS, temaValido, type Tema } from '#lib/chat.js';
 
 	let mensajes = $state<Mensaje[]>([]);
 	let texto = $state('');
 	let enviando = $state(false);
 	let lista: HTMLElement | undefined = $state();
+
+	// Tema compartido: si uno lo cambia, el otro lo ve al instante.
+	let tema = $state<Tema>('polaroid');
+	let eligiendo = $state(false);
+	const colorTema = $derived(TEMAS.find((t) => t.id === tema)?.color ?? null);
+
+	$effect(() => {
+		let cancelado = false;
+		let desuscribir: (() => Promise<void>) | undefined;
+		cargarTema().then((t) => {
+			if (!cancelado) tema = t;
+		});
+		pb.collection('chat')
+			.subscribe<{ tema: string }>(ID_CHAT, (e) => (tema = temaValido(e.record.tema)))
+			.then((quitar) => {
+				if (cancelado) quitar();
+				else desuscribir = quitar;
+			})
+			.catch(() => {});
+		return () => {
+			cancelado = true;
+			desuscribir?.();
+		};
+	});
+
+	async function elegirTema(t: Tema) {
+		const anterior = tema;
+		tema = t; // se ve al instante; si falla, vuelve
+		eligiendo = false;
+		try {
+			await cambiarTema(t);
+		} catch {
+			tema = anterior;
+		}
+	}
 
 	// Cache de usuarios para mostrar nombres de mensajes que llegan en tiempo real.
 	const usuarios = new Map<string, Usuario>();
@@ -94,9 +131,39 @@
 	}
 </script>
 
-<h1>Mensajes</h1>
+<div class="titulo">
+	<h1>Mensajes</h1>
+	<button
+		class="fantasma tema"
+		onclick={() => (eligiendo = !eligiendo)}
+		aria-expanded={eligiendo}
+		aria-controls="temas"
+	>
+		<Icono nombre="paleta" tam={20} />
+		Tema
+	</button>
+	{#if eligiendo}
+		<div class="temas tarjeta" id="temas" role="radiogroup" aria-label="Tema del chat">
+			{#each TEMAS as t (t.id)}
+				<button
+					class="muestra"
+					role="radio"
+					aria-checked={tema === t.id}
+					aria-label={t.nombre}
+					title={t.nombre}
+					style:--muestra={t.color ?? 'var(--acento)'}
+					onclick={() => elegirTema(t.id)}
+				></button>
+			{/each}
+		</div>
+	{/if}
+</div>
 
-<div class="chat tarjeta">
+<div
+	class="chat tarjeta"
+	style:--color-tema={colorTema ?? 'var(--acento)'}
+	style:--texto-tema={colorTema ? '#fff' : 'var(--sobre-acento)'}
+>
 	<div class="lista" bind:this={lista}>
 		{#each mensajes as m (m.id)}
 			{@const mio = m.autor === sesion.usuario?.id}
@@ -122,6 +189,45 @@
 </div>
 
 <style>
+	.titulo {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.titulo h1 {
+		margin: 0.25rem 0 1rem;
+	}
+	.tema {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-bottom: 0.75rem;
+	}
+	/* Flota sobre el chat para no cambiar su alto. */
+	.temas {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		z-index: 5;
+		display: flex;
+		gap: 0.6rem;
+		padding: 0.75rem;
+		margin-top: -0.5rem;
+		box-shadow: var(--sombra-polaroid);
+	}
+	.muestra {
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		border-radius: 50%;
+		background: var(--muestra);
+		border: 2px solid var(--fondo-elevado);
+		outline: 2px solid transparent;
+	}
+	.muestra[aria-checked='true'] {
+		outline-color: var(--texto);
+	}
 	.chat {
 		display: flex;
 		flex-direction: column;
@@ -136,6 +242,8 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: 1rem;
+		background: color-mix(in oklab, var(--color-tema) 9%, var(--fondo-elevado));
+		transition: background 0.3s;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -153,9 +261,9 @@
 	}
 	.burbuja.mio {
 		align-self: flex-end;
-		background: var(--acento);
-		border-color: var(--acento);
-		color: var(--sobre-acento);
+		background: var(--color-tema);
+		border-color: var(--color-tema);
+		color: var(--texto-tema);
 		border-radius: 16px 16px 4px 16px;
 	}
 	.burbuja p {
@@ -172,6 +280,10 @@
 		font-size: 0.7rem;
 		opacity: 0.7;
 		text-align: right;
+	}
+	form button {
+		background: var(--color-tema);
+		color: var(--texto-tema);
 	}
 	form {
 		display: flex;
