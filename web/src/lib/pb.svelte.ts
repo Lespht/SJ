@@ -10,7 +10,27 @@ export type Foto = RecordModel & {
 	descripcion: string;
 	fecha: string;
 	autor: string;
-	expand?: { autor?: Usuario; notas_via_foto?: Nota[] };
+	/** Post al que pertenece (momento o plan). Vacío solo en fotos subidas antes de NOS-10. */
+	post: string;
+	expand?: { autor?: Usuario; notas_via_foto?: Nota[]; post?: Post };
+};
+
+/**
+ * Todo lo que se comparte. Un momento es "mirá esto" (fotos + texto); un plan es una idea
+ * que al hacerse se completa con fotos. Borrar un post con fotos = archivarlo.
+ */
+export type Post = RecordModel & {
+	tipo: 'momento' | 'plan';
+	titulo: string;
+	texto: string;
+	categoria: '' | 'cita' | 'viaje' | 'regalo' | 'comida' | 'otro';
+	hecho: boolean;
+	/** Cuándo pasó. Vacío en un plan pendiente. */
+	fecha: string;
+	archivado: boolean;
+	archivado_en: string;
+	autor: string;
+	expand?: { autor?: Usuario; fotos_via_post?: Foto[] };
 };
 
 /** Nota de una persona sobre una foto (una por persona por foto). */
