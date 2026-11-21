@@ -1,5 +1,13 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { pb, nombre, fechaCorta, urlFoto, obtenerTokenArchivo, type Foto } from './pb.svelte';
+import {
+	pb,
+	nombre,
+	fechaCorta,
+	fechaRelativa,
+	urlFoto,
+	obtenerTokenArchivo,
+	type Foto
+} from './pb.svelte';
 
 // Tests de caracterización: fijan lo que hacen hoy estas funciones antes del rediseño.
 
@@ -25,6 +33,24 @@ describe('fechaCorta', () => {
 
 	it('vacía devuelve cadena vacía', () => {
 		expect(fechaCorta('')).toBe('');
+	});
+});
+
+describe('fechaRelativa', () => {
+	const ahora = new Date('2026-11-21T15:00:00');
+
+	it('dice hoy, ayer y hace N días durante la última semana', () => {
+		expect(fechaRelativa('2026-11-21 12:00:00.000Z', ahora)).toBe('hoy');
+		expect(fechaRelativa('2026-11-20 12:00:00.000Z', ahora)).toBe('ayer');
+		expect(fechaRelativa('2026-11-18 12:00:00.000Z', ahora)).toBe('hace 3 días');
+	});
+
+	it('después de una semana muestra la fecha corta', () => {
+		expect(fechaRelativa('2026-11-08 12:00:00.000Z', ahora)).toBe('8 nov 2026');
+	});
+
+	it('vacía devuelve cadena vacía', () => {
+		expect(fechaRelativa('', ahora)).toBe('');
 	});
 });
 

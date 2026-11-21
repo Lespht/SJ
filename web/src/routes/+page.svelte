@@ -3,7 +3,7 @@
 	import { cargarFeed, fotosDe, planPendienteAlAzar } from '#lib/feed.js';
 	import Mazo from '#lib/Mazo.svelte';
 	import {
-		fechaCorta,
+		fechaRelativa,
 		nombre,
 		obtenerTokenArchivo,
 		pb,
@@ -93,6 +93,11 @@
 			.flatMap((foto) => foto.expand?.notas_via_foto ?? [])
 			.sort((a, b) => a.created.localeCompare(b.created))}
 		<article class="post">
+			<header class="autor">
+				<span class="inicial" aria-hidden="true">{nombre(post.expand?.autor).charAt(0)}</span>
+				<span class="quien">{nombre(post.expand?.autor)}</span>
+				<span class="suave">{fechaRelativa(post.fecha || post.created)}</span>
+			</header>
 			{#if fotos.length}
 				<Mazo
 					fotos={fotos.map((foto) => ({
@@ -105,7 +110,6 @@
 			<div class="pie" class:polaroid={!fotos.length}>
 				{#if post.tipo === 'plan'}<h2 class="titulo">{post.titulo}</h2>{/if}
 				{#if post.texto}<p class="texto">{post.texto}</p>{/if}
-				<p class="suave">{nombre(post.expand?.autor)}, {fechaCorta(post.fecha)}</p>
 				{#each notas as nota (nota.id)}
 					<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
 				{/each}
@@ -149,7 +153,7 @@
 	.feed {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		gap: 1.5rem;
+		gap: 3rem;
 	}
 	/* Giro alterno de cada post, como fotos sueltas sobre la mesa. */
 	.post:nth-child(odd) :global(.mazo),
@@ -159,6 +163,28 @@
 	.post:nth-child(even) :global(.mazo),
 	.esqueleto:nth-child(even) {
 		transform: rotate(0.7deg);
+	}
+	.autor {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0 0.25rem;
+		font-size: 0.9rem;
+	}
+	.inicial {
+		width: 1.9rem;
+		height: 1.9rem;
+		display: grid;
+		place-items: center;
+		border-radius: 50%;
+		background: var(--acento-suave);
+		color: var(--acento);
+		font-family: var(--fuente-titulo);
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+	.quien {
+		font-weight: 600;
 	}
 	.post {
 		display: grid;

@@ -108,6 +108,18 @@ export function urlFoto(foto: Foto, token: string, thumb?: string) {
 	return pb.files.getURL(foto, foto.imagen, { token, ...(thumb ? { thumb } : {}) });
 }
 
+/** "hoy", "ayer", "hace 3 días"; pasada una semana, la fecha corta. Cuenta días de calendario. */
+export function fechaRelativa(iso: string, ahora = new Date()) {
+	if (!iso) return '';
+	const fecha = new Date(iso.replace(' ', 'T'));
+	const dia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	const dias = Math.round((dia(ahora) - dia(fecha)) / 86_400_000);
+	if (dias <= 0) return 'hoy';
+	if (dias === 1) return 'ayer';
+	if (dias < 7) return `hace ${dias} días`;
+	return fechaCorta(iso);
+}
+
 export function fechaCorta(iso: string) {
 	if (!iso) return '';
 	return new Date(iso.replace(' ', 'T')).toLocaleDateString('es', {
