@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { pb, sesion, nombre, type Mensaje, type Usuario } from '#lib/pb.svelte.js';
+	import Avatar from '#lib/Avatar.svelte';
 	import Icono from '#lib/Icono.svelte';
 	import { cambiarTema, cargarTema, ID_CHAT, TEMAS, temaValido, type Tema } from '#lib/chat.js';
 
@@ -165,12 +166,21 @@
 	style:--texto-tema={colorTema ? '#fff' : 'var(--sobre-acento)'}
 >
 	<div class="lista" bind:this={lista}>
-		{#each mensajes as m (m.id)}
+		{#each mensajes as m, i (m.id)}
 			{@const mio = m.autor === sesion.usuario?.id}
-			<div class="burbuja" class:mio>
-				{#if !mio}<small class="quien">{nombre(autorDe(m))}</small>{/if}
-				<p>{m.texto}</p>
-				<small class="hora">{hora(m.created)}</small>
+			{@const ultimoDeTanda = mensajes[i + 1]?.autor !== m.autor}
+			{@const primeroDeTanda = mensajes[i - 1]?.autor !== m.autor}
+			<div class="fila" class:mio>
+				{#if !mio}
+					<span class="lugar-avatar">
+						{#if ultimoDeTanda}<Avatar usuario={autorDe(m)} tam={28} />{/if}
+					</span>
+				{/if}
+				<div class="burbuja" class:mio>
+					{#if !mio && primeroDeTanda}<small class="quien">{nombre(autorDe(m))}</small>{/if}
+					<p>{m.texto}</p>
+					<small class="hora">{hora(m.created)}</small>
+				</div>
 			</div>
 		{:else}
 			<p class="suave vacio">Todavía no hay mensajes.</p>
@@ -251,16 +261,29 @@
 	.vacio {
 		margin: auto;
 	}
-	.burbuja {
-		max-width: 75%;
+	/* El avatar va al pie de cada tanda de mensajes del otro, como en Instagram. */
+	.fila {
+		display: flex;
+		align-items: flex-end;
+		gap: 0.4rem;
+		max-width: 85%;
 		align-self: flex-start;
+	}
+	.fila.mio {
+		align-self: flex-end;
+	}
+	.lugar-avatar {
+		width: 28px;
+		flex: none;
+	}
+	.burbuja {
+		min-width: 0;
 		background: var(--fondo);
 		border: 1px solid var(--borde);
 		border-radius: 16px 16px 16px 4px;
 		padding: 0.5rem 0.75rem;
 	}
 	.burbuja.mio {
-		align-self: flex-end;
 		background: var(--color-tema);
 		border-color: var(--color-tema);
 		color: var(--texto-tema);
