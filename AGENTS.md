@@ -46,6 +46,9 @@ solo lo que vale para todas las tareas.
 - El PocketBase de desarrollo (`127.0.0.1:8090`) tiene una **copia de datos reales**: no escribas
   ahí. Si una prueba manual lo necesita, el texto lleva `[prueba]` y se borra al terminar.
 - Nunca muestres claves, tokens ni contraseñas en la salida.
+- **No levantes servidores.** Vite ya corre en `http://localhost:5173` (recarga solo con cada cambio) y
+  PocketBase de desarrollo en `127.0.0.1:8090` (servicio systemd `nosotros`). Usá esos. Nunca `pnpm dev`
+  ni `pocketbase serve`. Si no responden, avisá en vez de arrancar otro.
 
 ## Estilo de la UI (para tareas de interfaz)
 
