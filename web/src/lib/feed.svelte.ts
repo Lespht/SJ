@@ -1,9 +1,11 @@
 import { prefersReducedMotion } from 'svelte/motion';
+import { novedades } from './novedades.svelte.js';
 import { pb, type Foto, type Post } from './pb.svelte.js';
 
 export const feed = $state({ version: 0 });
 
 export function refrescarInicio(): void {
+	novedades.hay = false;
 	feed.version += 1;
 	window.scrollTo({ top: 0, behavior: prefersReducedMotion.current ? 'auto' : 'smooth' });
 }

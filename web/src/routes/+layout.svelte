@@ -5,6 +5,7 @@
 	import { feed, refrescarInicio } from '#lib/feed.svelte.js';
 	import Hoja from '#lib/Hoja.svelte';
 	import BotonMensajes from '#lib/BotonMensajes.svelte';
+	import { escucharNovedades, novedades } from '#lib/novedades.svelte.js';
 	import { sesion, renovarSesion } from '#lib/pb.svelte.js';
 	import { temaDe } from '#lib/perfil.svelte.js';
 	import Icono, { type NombreIcono } from '#lib/Icono.svelte';
@@ -35,6 +36,7 @@
 	];
 
 	const enLogin = $derived(page.url.pathname === '/login');
+	const usuarioId = $derived(sesion.usuario?.id);
 	const tema = $derived(temaDe(sesion.usuario));
 
 	$effect(() => {
@@ -59,22 +61,24 @@
 		renovarSesion();
 	});
 
+	$effect(() => {
+		novedades.hay = false;
+		if (usuarioId) return escucharNovedades(usuarioId);
+	});
+
 	function activa(href: string) {
 		return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
 	}
 
-	function tocarInicio(evento: MouseEvent) {
-		if (
-			!activa('/') ||
-			evento.button !== 0 ||
-			evento.altKey ||
-			evento.ctrlKey ||
-			evento.metaKey ||
-			evento.shiftKey
-		)
+	function tocarInicio(evento: MouseEvent, desdeMarca = false) {
+		if (evento.button !== 0 || evento.altKey || evento.ctrlKey || evento.metaKey || evento.shiftKey)
 			return;
-		evento.preventDefault();
-		refrescarInicio();
+		if (activa('/')) {
+			evento.preventDefault();
+			refrescarInicio();
+		} else if (desdeMarca) {
+			novedades.hay = false;
+		}
 	}
 </script>
 
@@ -103,7 +107,24 @@
 				<Icono nombre="mas" />
 			</button>
 		</div>
-		<a href="/" class="marca" onclick={tocarInicio}>Nosotros</a>
+		<a
+			href="/"
+			class="marca"
+			aria-label={novedades.hay ? 'Nosotros (hay novedades)' : 'Nosotros'}
+			onclick={(evento) => tocarInicio(evento, true)}
+		>
+			Nosotros
+			{#if novedades.hay}
+				<svg
+					class="borde-novedades"
+					viewBox="0 0 120 40"
+					preserveAspectRatio="none"
+					aria-hidden="true"
+				>
+					<rect x="1" y="1" width="118" height="38" rx="12" pathLength="100" />
+				</svg>
+			{/if}
+		</a>
 		<div class="lado derecha">
 			<a href="/juegos" class="boton-icono" class:activo={activa('/juegos')} aria-label="Juegos">
 				<Icono nombre="juegos" />
@@ -154,12 +175,42 @@
 		justify-content: flex-end;
 	}
 	.marca {
+		position: relative;
 		font-family: var(--fuente-titulo);
 		font-size: 1.4rem;
 		font-weight: 700;
 		letter-spacing: -0.03em;
 		color: var(--texto);
 		text-decoration: none;
+	}
+	.borde-novedades {
+		position: absolute;
+		inset: -2px -8px;
+		width: calc(100% + 16px);
+		height: calc(100% + 4px);
+		pointer-events: none;
+	}
+	.borde-novedades rect {
+		fill: none;
+		stroke: var(--acento);
+		stroke-width: 2px;
+		stroke-dasharray: 100;
+		stroke-dashoffset: 0;
+		vector-effect: non-scaling-stroke;
+		animation: recorrer-novedades 1.2s ease-out both;
+	}
+	@keyframes recorrer-novedades {
+		from {
+			stroke-dashoffset: 100;
+		}
+		to {
+			stroke-dashoffset: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.borde-novedades rect {
+			animation: none;
+		}
 	}
 	.boton-icono {
 		width: 44px;

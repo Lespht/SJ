@@ -3,14 +3,31 @@ import {
 	cargarFeed,
 	cargarPost,
 	EXPAND_POST,
+	feed,
 	fotosDe,
 	planPendienteAlAzar,
-	proximoPlan
+	proximoPlan,
+	refrescarInicio
 } from './feed.svelte';
+import { novedades } from './novedades.svelte';
 import { pb, type Foto, type Post } from './pb.svelte';
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
+
+it('apaga las novedades al recargar Inicio y subir al principio', () => {
+	const scrollTo = vi.fn();
+	vi.stubGlobal('window', { scrollTo });
+	const version = feed.version;
+	novedades.hay = true;
+
+	refrescarInicio();
+
+	expect(novedades.hay).toBe(false);
+	expect(feed.version).toBe(version + 1);
+	expect(scrollTo).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ top: 0 }));
 });
 
 function simularPagina(page: number, totalPages: number, items: Post[] = [], perPage = 10) {
