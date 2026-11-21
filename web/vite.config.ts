@@ -24,7 +24,7 @@ export default defineConfig({
 		})
 	],
 	server: {
-		host: true,
+		// Solo local. Para probar desde el celular en la LAN: `pnpm dev --host`.
 		proxy: {
 			'/api': { target: POCKETBASE, changeOrigin: true },
 			'/_': { target: POCKETBASE, changeOrigin: true }

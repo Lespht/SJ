@@ -1,5 +1,6 @@
-# Servicio systemd de USUARIO (no requiere sudo).
-# Instalación (en el PC servidor, ajustá la ruta si cambia):
+# Servicio systemd de USUARIO para DESARROLLO (no requiere sudo).
+# Producción se instala con homeserver/services/nosotros/deploy.sh.
+# Instalación (en tu PC de desarrollo, ajustá la ruta si cambia):
 #   mkdir -p ~/.config/systemd/user
 #   cp nosotros.service ~/.config/systemd/user/
 #   systemctl --user daemon-reload
@@ -14,7 +15,9 @@ After=network-online.target
 
 [Service]
 WorkingDirectory=%h/Projects/SJ/server
-ExecStart=%h/Projects/SJ/server/pocketbase serve --http 0.0.0.0:8090
+# Solo local: es la instancia de desarrollo (Vite la usa vía proxy en 127.0.0.1).
+# Producción vive en el servidor (repo homeserver), no acá.
+ExecStart=%h/Projects/SJ/server/pocketbase serve --http 127.0.0.1:8090
 Restart=on-failure
 RestartSec=5
 
