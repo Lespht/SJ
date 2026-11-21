@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { pb, sesion, nombre, type Idea } from '#lib/pb.svelte.js';
+	import Icono from '#lib/Icono.svelte';
 
 	const categorias = [
-		{ valor: 'cita', label: '🌹 Cita' },
-		{ valor: 'viaje', label: '✈️ Viaje' },
-		{ valor: 'regalo', label: '🎁 Regalo' },
-		{ valor: 'comida', label: '🍝 Comida' },
-		{ valor: 'otro', label: '✨ Otro' }
+		{ valor: 'cita', label: 'Cita' },
+		{ valor: 'viaje', label: 'Viaje' },
+		{ valor: 'regalo', label: 'Regalo' },
+		{ valor: 'comida', label: 'Comida' },
+		{ valor: 'otro', label: 'Otro' }
 	] as const;
 
 	let ideas = $state<Idea[]>([]);
@@ -67,10 +68,10 @@
 	}
 </script>
 
-<h1>💡 Ideas</h1>
+<h1>Planes</h1>
 
 <form class="tarjeta nueva" onsubmit={agregar}>
-	<input placeholder="¿Qué se les ocurrió?" bind:value={titulo} required maxlength="200" />
+	<input placeholder="¿Qué quieren hacer?" bind:value={titulo} required maxlength="200" />
 	<select bind:value={categoria}>
 		{#each categorias as c (c.valor)}
 			<option value={c.valor}>{c.label}</option>
@@ -92,7 +93,7 @@
 
 <ul>
 	{#each visibles as i (i.id)}
-		<li class="tarjeta" class:hecha={i.hecha}>
+		<li class={i.hecha ? 'tarjeta hecha' : 'pendiente'}>
 			<input type="checkbox" checked={i.hecha} onchange={() => alternar(i)} aria-label="Hecha" />
 			<div class="texto">
 				<strong>{i.titulo}</strong>
@@ -100,11 +101,13 @@
 				<small class="suave">{etiqueta(i.categoria)} · de {nombre(i.expand?.autor)}</small>
 			</div>
 			{#if i.autor === sesion.usuario?.id}
-				<button class="fantasma" onclick={() => borrar(i)} aria-label="Borrar">✕</button>
+				<button class="icono" onclick={() => borrar(i)} aria-label="Borrar plan">
+					<Icono nombre="cerrar" tam={18} />
+				</button>
 			{/if}
 		</li>
 	{:else}
-		<p class="suave">No hay ideas acá todavía.</p>
+		<p class="suave">No hay planes acá todavía.</p>
 	{/each}
 </ul>
 
@@ -132,17 +135,17 @@
 		margin-bottom: 1rem;
 	}
 	.filtros button {
-		background: var(--fondo-elevado);
+		background: transparent;
 		color: var(--texto-suave);
 		border: 1px solid var(--borde);
 		border-radius: 999px;
 		padding: 0.3rem 0.8rem;
-		font-weight: normal;
+		font-weight: 500;
 	}
 	.filtros button.activo {
-		background: var(--acento-suave);
-		color: var(--acento);
-		border-color: var(--acento);
+		background: var(--texto);
+		color: var(--fondo);
+		border-color: var(--texto);
 	}
 	.hechas {
 		margin-left: auto;
@@ -159,7 +162,13 @@
 		padding: 0;
 		margin: 0;
 		display: grid;
-		gap: 0.5rem;
+		gap: 0.75rem;
+	}
+	.texto strong {
+		font-family: var(--fuente-titulo);
+		font-size: 1.1rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
 	}
 	li {
 		display: flex;

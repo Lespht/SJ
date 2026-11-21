@@ -94,7 +94,7 @@
 	}
 </script>
 
-<h1>💬 Mensajes</h1>
+<h1>Mensajes</h1>
 
 <div class="chat tarjeta">
 	<div class="lista" bind:this={lista}>
@@ -106,13 +106,13 @@
 				<small class="hora">{hora(m.created)}</small>
 			</div>
 		{:else}
-			<p class="suave vacio">Escribí el primer mensaje 💌</p>
+			<p class="suave vacio">Todavía no hay mensajes.</p>
 		{/each}
 	</div>
 
 	<form onsubmit={enviar}>
 		<textarea
-			placeholder="Escribí algo lindo…"
+			placeholder="Escribí un mensaje"
 			bind:value={texto}
 			onkeydown={teclas}
 			rows="1"
@@ -125,7 +125,9 @@
 	.chat {
 		display: flex;
 		flex-direction: column;
-		height: calc(100dvh - 12rem);
+		/* Todo el alto disponible entre la cabecera y la barra de abajo,
+		   menos el padding de main (2rem) y el título (~3rem). */
+		height: calc(100dvh - var(--alto-cabecera) - var(--alto-nav) - 5rem);
 		min-height: 320px;
 		padding: 0;
 		overflow: hidden;
@@ -153,7 +155,7 @@
 		align-self: flex-end;
 		background: var(--acento);
 		border-color: var(--acento);
-		color: white;
+		color: var(--sobre-acento);
 		border-radius: 16px 16px 4px 16px;
 	}
 	.burbuja p {

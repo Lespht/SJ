@@ -86,7 +86,7 @@
 	}
 </script>
 
-<h1>🎲 Juegos</h1>
+<h1>Juegos</h1>
 
 <div class="layout">
 	<section>
@@ -105,21 +105,21 @@
 					onclick={() => elegir(i)}
 					aria-label={c.visible || c.encontrada ? c.emoji : 'Carta oculta'}
 				>
-					<span>{c.visible || c.encontrada ? c.emoji : '❔'}</span>
+					<span>{c.visible || c.encontrada ? c.emoji : ''}</span>
 				</button>
 			{/each}
 		</div>
 
 		{#if terminado}
 			<div class="tarjeta fin">
-				<strong>¡Listo! {puntos} puntos en {intentos} intentos 🎉</strong>
+				<strong>{puntos} puntos en {intentos} intentos</strong>
 				<button onclick={nuevaPartida}>Jugar de nuevo</button>
 			</div>
 		{/if}
 	</section>
 
 	<aside class="tarjeta">
-		<h2>🏆 Mejores puntajes</h2>
+		<h2>Mejores puntajes</h2>
 		<ol>
 			{#each mejores as p (p.id)}
 				<li>
@@ -140,7 +140,7 @@
 	}
 	.layout {
 		display: grid;
-		grid-template-columns: 1fr 260px;
+		grid-template-columns: 1fr;
 		gap: 1.5rem;
 		align-items: start;
 	}
@@ -168,14 +168,17 @@
 		aspect-ratio: 1;
 		font-size: clamp(1.5rem, 7vw, 2.2rem);
 		padding: 0;
-		background: var(--acento);
+		background: var(--fondo-elevado);
+		border: 1.5px dashed var(--texto-suave);
+		border-radius: 4px;
 		transition:
 			transform 0.2s,
 			background 0.2s;
 	}
 	.carta.dada-vuelta {
 		background: var(--fondo-elevado);
-		border: 1px solid var(--borde);
+		border: 1.5px solid var(--borde);
+		box-shadow: var(--sombra-polaroid);
 		transform: rotateY(180deg);
 	}
 	.carta.dada-vuelta span {

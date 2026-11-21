@@ -9,6 +9,7 @@
 		type Foto,
 		type Nota
 	} from '#lib/pb.svelte.js';
+	import Icono from '#lib/Icono.svelte';
 
 	const POR_PAGINA = 30;
 
@@ -141,7 +142,7 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && cerrar()} />
 
-<h1>📷 Fotos</h1>
+<h1>Fotos</h1>
 
 <form class="tarjeta subir" onsubmit={subir}>
 	<input type="file" accept="image/*" multiple bind:files={archivos} required />
@@ -163,7 +164,7 @@
 {#if fotos.length}
 	<div class="galeria">
 		{#each fotos as f (f.id)}
-			<button class="miniatura" onclick={() => (abierta = f)}>
+			<button class="miniatura polaroid" onclick={() => (abierta = f)}>
 				<img src={urlFoto(f, token, '400x400')} alt={f.descripcion} loading="lazy" />
 			</button>
 		{/each}
@@ -213,10 +214,16 @@
 								<p>{n.texto}</p>
 								{#if mia}
 									<div class="nota-acciones">
-										<button class="mini" onclick={() => (borradorNota = n.texto)} title="Editar">
-											✏️
+										<button
+											class="mini"
+											onclick={() => (borradorNota = n.texto)}
+											aria-label="Editar nota"
+										>
+											<Icono nombre="editar" tam={16} />
 										</button>
-										<button class="mini" onclick={() => borrarNota(n)} title="Borrar">🗑</button>
+										<button class="mini" onclick={() => borrarNota(n)} aria-label="Borrar nota">
+											<Icono nombre="borrar" tam={16} />
+										</button>
 									</div>
 								{/if}
 							</div>
@@ -243,7 +250,7 @@
 						</form>
 					{:else if !miNota}
 						<button class="fantasma dejar" onclick={() => (borradorNota = '')}>
-							+ Dejar una nota
+							Dejar una nota
 						</button>
 					{/if}
 					{#if errorNota}<p class="error">{errorNota}</p>{/if}
@@ -274,21 +281,28 @@
 		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 		gap: 0.5rem;
 	}
+	.galeria {
+		gap: 1rem;
+	}
 	.miniatura {
-		padding: 0;
-		background: none;
-		border-radius: 10px;
-		overflow: hidden;
+		padding: 6px 6px 12px;
+		color: inherit;
+		transition: transform 0.2s;
+	}
+	.miniatura:nth-child(odd) {
+		transform: rotate(-0.8deg);
+	}
+	.miniatura:nth-child(even) {
+		transform: rotate(0.7deg);
+	}
+	.miniatura:hover {
+		transform: rotate(0deg) translateY(-2px);
 	}
 	.miniatura img {
 		width: 100%;
 		aspect-ratio: 1;
 		object-fit: cover;
 		display: block;
-		transition: transform 0.2s;
-	}
-	.miniatura:hover img {
-		transform: scale(1.04);
 	}
 	.centrado {
 		text-align: center;
@@ -361,7 +375,7 @@
 		align-self: flex-end;
 		background: var(--acento);
 		border-color: var(--acento);
-		color: white;
+		color: var(--sobre-acento);
 		border-radius: 16px 16px 4px 16px;
 	}
 	.burbuja p {
@@ -380,9 +394,11 @@
 		margin-top: 0.25rem;
 	}
 	.mini {
+		display: inline-grid;
+		place-items: center;
 		background: none;
-		padding: 0 0.25rem;
-		font-size: 0.85rem;
+		color: inherit;
+		padding: 0.15rem 0.25rem;
 	}
 	.nota-form {
 		align-self: stretch;

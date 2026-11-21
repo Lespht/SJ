@@ -1,25 +1,38 @@
+/* Dirección "Polaroid": fondo gris verdoso, recuerdos como polaroids, acento verde.
+   Claro y oscuro según el sistema. */
 :root {
-	--fondo: #fdf8f6;
-	--fondo-elevado: #ffffff;
-	--texto: #2b2227;
-	--texto-suave: #7a6b72;
-	--borde: #eee2e5;
-	--acento: #d6336c;
-	--acento-suave: #fde4ec;
-	--peligro: #c92a2a;
-	--radio: 14px;
+	--fondo: #eef0ec;
+	--fondo-elevado: #ffffff; /* marco de polaroid, campos, barras */
+	--texto: #1f2421;
+	--texto-suave: #66706a;
+	--borde: #d9ddd6;
+	--acento: #2f6b55;
+	--acento-suave: #dde9e2;
+	--sobre-acento: #ffffff;
+	--peligro: #b3362f;
+	--sombra-polaroid: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 14px rgb(0 0 0 / 0.04);
+
+	--fuente-ui: 'Onest Variable', system-ui, sans-serif;
+	--fuente-titulo: 'Bricolage Grotesque Variable', 'Onest Variable', sans-serif;
+
+	--alto-cabecera: 56px;
+	--alto-nav: calc(60px + env(safe-area-inset-bottom, 0px));
+	--ancho: 600px;
 	color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--fondo: #17131a;
-		--fondo-elevado: #221c25;
-		--texto: #f3eaf0;
-		--texto-suave: #a596a0;
-		--borde: #352b38;
-		--acento: #f06595;
-		--acento-suave: #3d2030;
+		--fondo: #121513;
+		--fondo-elevado: #1c201d;
+		--texto: #e8ece9;
+		--texto-suave: #8f9992;
+		--borde: #2a2f2b;
+		--acento: #7cc4a4;
+		--acento-suave: #213129;
+		--sobre-acento: #121513;
+		--peligro: #f08a80;
+		--sombra-polaroid: 0 1px 2px rgb(0 0 0 / 0.4);
 		color-scheme: dark;
 	}
 }
@@ -32,18 +45,23 @@ body {
 	margin: 0;
 	background: var(--fondo);
 	color: var(--texto);
-	font-family:
-		system-ui,
-		-apple-system,
-		'Segoe UI',
-		Roboto,
-		sans-serif;
+	font-family: var(--fuente-ui);
 	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+	font-family: var(--fuente-titulo);
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	line-height: 1.2;
 }
 
 h1 {
 	font-size: 1.6rem;
-	margin: 0.5rem 0 1rem;
+	margin: 0.25rem 0 1rem;
 }
 
 a {
@@ -68,11 +86,13 @@ select {
 	color: var(--texto);
 }
 
-input:focus,
-textarea:focus,
-select:focus {
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible {
 	outline: 2px solid var(--acento);
-	outline-offset: -1px;
+	outline-offset: 2px;
 }
 
 button {
@@ -80,26 +100,50 @@ button {
 	border: none;
 	border-radius: 10px;
 	background: var(--acento);
-	color: white;
+	color: var(--sobre-acento);
 	font-weight: 600;
 	cursor: pointer;
+	transition: opacity 0.15s;
 }
 
 button:disabled {
-	opacity: 0.6;
+	opacity: 0.45;
 	cursor: default;
 }
 
 button.fantasma {
 	background: transparent;
 	color: var(--texto-suave);
-	font-weight: normal;
+	font-weight: 500;
+}
+
+button.icono {
+	display: inline-grid;
+	place-items: center;
+	padding: 0.4rem;
+	background: transparent;
+	color: var(--texto-suave);
 }
 
 .tarjeta {
 	background: var(--fondo-elevado);
 	border: 1px solid var(--borde);
-	border-radius: var(--radio);
+	border-radius: 12px;
+	padding: 1rem;
+}
+
+/* Un recuerdo: marco claro con más margen abajo, apenas girado. */
+.polaroid {
+	background: var(--fondo-elevado);
+	padding: 8px 8px 14px;
+	border-radius: 3px;
+	box-shadow: var(--sombra-polaroid);
+}
+
+/* Un plan que todavía no pasó: el hueco que falta llenar. */
+.pendiente {
+	border: 1.5px dashed var(--texto-suave);
+	border-radius: 4px;
 	padding: 1rem;
 }
 
@@ -109,4 +153,13 @@ button.fantasma {
 
 .suave {
 	color: var(--texto-suave);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
 }

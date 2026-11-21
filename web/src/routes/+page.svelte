@@ -35,20 +35,20 @@
 	}
 </script>
 
-<h1>Hola, {nombre(sesion.usuario)} 💕</h1>
+<h1>Hola, {nombre(sesion.usuario)}</h1>
 
 <div class="grilla">
 	<a class="tarjeta" href="/mensajes">
-		<h2>💬 Último mensaje</h2>
+		<h2>Último mensaje</h2>
 		{#if ultimoMensaje}
 			<p><strong>{nombre(ultimoMensaje.expand?.autor)}:</strong> {ultimoMensaje.texto}</p>
 		{:else}
-			<p class="suave">Todavía no hay mensajes. ¡Escribí el primero!</p>
+			<p class="suave">Todavía no hay mensajes.</p>
 		{/if}
 	</a>
 
-	<a class="tarjeta" href="/ideas">
-		<h2>💡 Ideas pendientes: {ideasPendientes}</h2>
+	<a class="pendiente" href="/ideas">
+		<h2>Planes pendientes: {ideasPendientes}</h2>
 		{#if ideaAlAzar}
 			<p>¿Qué tal… <strong>{ideaAlAzar.titulo}</strong>?</p>
 		{:else}
@@ -58,11 +58,13 @@
 </div>
 
 <section>
-	<h2><a href="/fotos">📷 Fotos recientes</a></h2>
+	<h2><a href="/fotos">Fotos</a></h2>
 	{#if fotos.length}
 		<div class="fotos">
 			{#each fotos as f (f.id)}
-				<a href="/fotos"><img src={urlFoto(f, token, '400x400')} alt={f.descripcion} /></a>
+				<a href="/fotos" class="polaroid">
+					<img src={urlFoto(f, token, '400x400')} alt={f.descripcion} />
+				</a>
 			{/each}
 		</div>
 	{:else}
@@ -97,11 +99,22 @@
 		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 		gap: 0.5rem;
 	}
+	.fotos {
+		gap: 0.9rem;
+	}
+	.fotos a {
+		padding: 5px 5px 10px;
+	}
+	.fotos a:nth-child(odd) {
+		transform: rotate(-0.8deg);
+	}
+	.fotos a:nth-child(even) {
+		transform: rotate(0.7deg);
+	}
 	.fotos img {
 		width: 100%;
 		aspect-ratio: 1;
 		object-fit: cover;
-		border-radius: 10px;
 		display: block;
 	}
 </style>
