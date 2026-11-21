@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ClientResponseError } from 'pocketbase';
 	import {
 		pb,
 		sesion,
@@ -11,11 +12,12 @@
 		type Post
 	} from '#lib/pb.svelte.js';
 	import Icono from '#lib/Icono.svelte';
+	import { borrarPost } from '#lib/posts.js';
 
 	const POR_PAGINA = 30;
 
 	let fotos = $state<Foto[]>([]);
-	let token = $state('');
+	const urls = new Map<string, { miniatura: string; ampliada: string; original: string }>();
 	let pagina = $state(1);
 	let hayMas = $state(false);
 
@@ -37,6 +39,8 @@
 
 	let abierta = $state<Foto | null>(null);
 	let confirmarBorrado = $state(false);
+	let borrando = $state(false);
+	let errorBorrado = $state('');
 
 	// Notas: null = no se está editando; '' o texto = formulario abierto.
 	let borradorNota = $state<string | null>(null);
@@ -104,7 +108,14 @@
 			}),
 			obtenerTokenArchivo()
 		]);
-		token = tk;
+		for (const foto of res.items) {
+			if (urls.has(foto.id)) continue;
+			urls.set(foto.id, {
+				miniatura: urlFoto(foto, tk, '400x400'),
+				ampliada: urlFoto(foto, tk, '1600x0'),
+				original: urlFoto(foto, tk)
+			});
+		}
 		fotos = p === 1 ? res.items : [...fotos, ...res.items];
 		pagina = p;
 		hayMas = p < res.totalPages;
@@ -160,10 +171,37 @@
 	}
 
 	async function borrar(f: Foto) {
-		await pb.collection('fotos').delete(f.id);
-		abierta = null;
-		confirmarBorrado = false;
-		fotos = fotos.filter((x) => x.id !== f.id);
+		if (borrando || f.autor !== sesion.usuario?.id) return;
+		borrando = true;
+		errorBorrado = '';
+		try {
+			await pb.collection('fotos').delete(f.id);
+			cerrar();
+			fotos = fotos.filter((foto) => foto.id !== f.id);
+			urls.delete(f.id);
+			if (!f.post) return;
+
+			try {
+				const post = await pb
+					.collection('posts')
+					.getOne<Post>(f.post, { expand: 'fotos_via_post' });
+				if (
+					post.tipo === 'momento' &&
+					post.autor === f.autor &&
+					!post.expand?.fotos_via_post?.length
+				) {
+					await borrarPost(post);
+				}
+			} catch (err) {
+				if (!(err instanceof ClientResponseError && err.status === 404)) {
+					errorBorrado = 'Se borró la foto, pero no se pudo limpiar el momento.';
+				}
+			}
+		} catch {
+			errorBorrado = 'No se pudo borrar la foto.';
+		} finally {
+			borrando = false;
+		}
 	}
 
 	function cerrar() {
@@ -196,11 +234,13 @@
 	{#if error}<p class="error">{error}</p>{/if}
 </form>
 
+{#if errorBorrado && !abierta}<p class="error" role="alert">{errorBorrado}</p>{/if}
+
 {#if fotos.length}
 	<div class="galeria">
 		{#each fotos as f (f.id)}
 			<button class="miniatura polaroid" onclick={() => (abierta = f)}>
-				<img src={urlFoto(f, token, '400x400')} alt={f.descripcion} loading="lazy" />
+				<img src={urls.get(f.id)?.miniatura} alt={f.descripcion} loading="lazy" />
 			</button>
 		{/each}
 	</div>
@@ -216,7 +256,7 @@
 {#if abierta}
 	<div class="visor" role="presentation" onclick={cerrar}>
 		<figure role="presentation" onclick={(e) => e.stopPropagation()}>
-			<img src={urlFoto(abierta, token, '1600x0')} alt={abierta.descripcion} />
+			<img src={urls.get(abierta.id)?.ampliada} alt={abierta.descripcion} />
 			<figcaption>
 				<div>
 					{#if abierta.descripcion}<strong>{abierta.descripcion}</strong><br />{/if}
@@ -225,10 +265,14 @@
 					</span>
 				</div>
 				<div class="acciones">
-					<a href={urlFoto(abierta, token)} target="_blank" rel="noopener">Original</a>
+					<a href={urls.get(abierta.id)?.original} target="_blank" rel="noopener">Original</a>
 					{#if abierta.autor === sesion.usuario?.id}
 						{#if confirmarBorrado}
-							<button class="peligro" onclick={() => abierta && borrar(abierta)}>
+							<button
+								class="peligro"
+								disabled={borrando}
+								onclick={() => abierta && borrar(abierta)}
+							>
 								¿Seguro? Borrar
 							</button>
 						{:else}
@@ -237,6 +281,7 @@
 					{/if}
 					<button class="fantasma" onclick={cerrar}>Cerrar</button>
 				</div>
+				{#if errorBorrado}<p class="error" role="alert">{errorBorrado}</p>{/if}
 
 				<section class="notas">
 					{#each notas as n (n.id)}
