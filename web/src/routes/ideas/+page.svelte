@@ -27,7 +27,9 @@
 	});
 
 	async function cargar() {
-		ideas = await pb.collection('ideas').getFullList<Idea>({ sort: 'hecha,-created', expand: 'autor' });
+		ideas = await pb
+			.collection('ideas')
+			.getFullList<Idea>({ sort: 'hecha,-created', expand: 'autor' });
 	}
 
 	async function agregar(e: SubmitEvent) {
@@ -74,7 +76,8 @@
 			<option value={c.valor}>{c.label}</option>
 		{/each}
 	</select>
-	<textarea placeholder="Detalles (opcional)" bind:value={detalle} rows="2" maxlength="2000"></textarea>
+	<textarea placeholder="Detalles (opcional)" bind:value={detalle} rows="2" maxlength="2000"
+	></textarea>
 	<button>Agregar</button>
 	{#if error}<p class="error">{error}</p>{/if}
 </form>

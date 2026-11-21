@@ -1,6 +1,6 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 // En desarrollo, Vite reenvía la API a PocketBase (puerto 8090),
 // así el frontend siempre habla con "/" igual que en producción.
@@ -23,6 +23,10 @@ export default defineConfig({
 			})
 		})
 	],
+	test: {
+		include: ['src/**/*.test.ts'],
+		setupFiles: ['src/test/setup.ts']
+	},
 	server: {
 		// Solo local. Para probar desde el celular en la LAN: `pnpm dev --host`.
 		proxy: {

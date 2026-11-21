@@ -145,10 +145,17 @@
 
 <form class="tarjeta subir" onsubmit={subir}>
 	<input type="file" accept="image/*" multiple bind:files={archivos} required />
-	<input type="text" placeholder="Descripción (opcional)" bind:value={descripcion} maxlength="500" />
+	<input
+		type="text"
+		placeholder="Descripción (opcional)"
+		bind:value={descripcion}
+		maxlength="500"
+	/>
 	<input type="date" bind:value={fecha} />
 	<button disabled={subiendo || !archivos?.length}>
-		{subiendo ? 'Subiendo…' : `Subir${archivos && archivos.length > 1 ? ` (${archivos.length})` : ''}`}
+		{subiendo
+			? 'Subiendo…'
+			: `Subir${archivos && archivos.length > 1 ? ` (${archivos.length})` : ''}`}
 	</button>
 	{#if error}<p class="error">{error}</p>{/if}
 </form>
@@ -162,7 +169,9 @@
 		{/each}
 	</div>
 	{#if hayMas}
-		<p class="centrado"><button class="fantasma" onclick={() => cargar(pagina + 1)}>Ver más</button></p>
+		<p class="centrado">
+			<button class="fantasma" onclick={() => cargar(pagina + 1)}>Ver más</button>
+		</p>
 	{/if}
 {:else}
 	<p class="suave">Todavía no hay fotos.</p>
@@ -183,7 +192,9 @@
 					<a href={urlFoto(abierta, token)} target="_blank" rel="noopener">Original</a>
 					{#if abierta.autor === sesion.usuario?.id}
 						{#if confirmarBorrado}
-							<button class="peligro" onclick={() => abierta && borrar(abierta)}>¿Seguro? Borrar</button>
+							<button class="peligro" onclick={() => abierta && borrar(abierta)}>
+								¿Seguro? Borrar
+							</button>
 						{:else}
 							<button class="fantasma" onclick={() => (confirmarBorrado = true)}>Borrar</button>
 						{/if}
@@ -202,7 +213,9 @@
 								<p>{n.texto}</p>
 								{#if mia}
 									<div class="nota-acciones">
-										<button class="mini" onclick={() => (borradorNota = n.texto)} title="Editar">✏️</button>
+										<button class="mini" onclick={() => (borradorNota = n.texto)} title="Editar">
+											✏️
+										</button>
 										<button class="mini" onclick={() => borrarNota(n)} title="Borrar">🗑</button>
 									</div>
 								{/if}
@@ -213,17 +226,25 @@
 					{#if borradorNota !== null}
 						<form class="nota-form" onsubmit={guardarNota}>
 							<!-- svelte-ignore a11y_autofocus -->
-							<textarea bind:value={borradorNota} maxlength="500" rows="2" placeholder="Tu nota…" autofocus
-							></textarea>
+							<textarea
+								bind:value={borradorNota}
+								maxlength="500"
+								rows="2"
+								placeholder="Tu nota…"
+								autofocus></textarea>
 							<div class="nota-acciones">
 								<button disabled={guardandoNota || !borradorNota.trim()}>
 									{guardandoNota ? 'Guardando…' : 'Guardar'}
 								</button>
-								<button type="button" class="fantasma" onclick={() => (borradorNota = null)}>Cancelar</button>
+								<button type="button" class="fantasma" onclick={() => (borradorNota = null)}>
+									Cancelar
+								</button>
 							</div>
 						</form>
 					{:else if !miNota}
-						<button class="fantasma dejar" onclick={() => (borradorNota = '')}>+ Dejar una nota</button>
+						<button class="fantasma dejar" onclick={() => (borradorNota = '')}>
+							+ Dejar una nota
+						</button>
 					{/if}
 					{#if errorNota}<p class="error">{errorNota}</p>{/if}
 				</section>

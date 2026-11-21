@@ -55,7 +55,9 @@
 		if (!t || !sesion.usuario) return;
 		enviando = true;
 		try {
-			const m = await pb.collection('mensajes').create<Mensaje>({ texto: t, autor: sesion.usuario.id });
+			const m = await pb
+				.collection('mensajes')
+				.create<Mensaje>({ texto: t, autor: sesion.usuario.id });
 			texto = '';
 			if (!mensajes.some((x) => x.id === m.id)) {
 				mensajes.push(m);
@@ -75,7 +77,11 @@
 	}
 
 	function autorDe(m: Mensaje) {
-		return m.expand?.autor ?? usuarios.get(m.autor) ?? (m.autor === sesion.usuario?.id ? sesion.usuario : null);
+		return (
+			m.expand?.autor ??
+			usuarios.get(m.autor) ??
+			(m.autor === sesion.usuario?.id ? sesion.usuario : null)
+		);
 	}
 
 	function hora(iso: string) {
@@ -110,8 +116,7 @@
 			bind:value={texto}
 			onkeydown={teclas}
 			rows="1"
-			maxlength="4000"
-		></textarea>
+			maxlength="4000"></textarea>
 		<button disabled={enviando || !texto.trim()}>Enviar</button>
 	</form>
 </div>
