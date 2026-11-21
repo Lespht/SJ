@@ -1,6 +1,6 @@
 # Nosotros 💞
 
-App privada de pareja: fotos, ideas, mensajes en tiempo real y juegos.
+App privada de pareja: un feed de recuerdos (momentos y planes con fotos), mensajes en tiempo real y juegos.
 
 - **server/**: [PocketBase](https://pocketbase.io) v0.40.6 (base de datos SQLite, auth, archivos, realtime, panel admin).
 - **web/**: SvelteKit 3 + TypeScript, compilado como SPA dentro de `server/pb_public/`.
@@ -17,14 +17,16 @@ web/                      código del frontend
 
 ## Colecciones
 
-| Colección  | Campos                                        | Reglas                                              |
-|------------|-----------------------------------------------|-----------------------------------------------------|
-| `users`    | email, name, avatar                           | sin registro público; se crean desde el admin       |
-| `fotos`    | imagen (protegida), descripcion, fecha, autor | ver: logueados · editar/borrar: autor               |
-| `notas`    | foto, autor, texto (una por persona y foto)   | ver: logueados · editar/borrar: autor · se borran con la foto |
-| `ideas`    | titulo, detalle, categoria, hecha, autor      | ver/editar: logueados · borrar: autor               |
-| `mensajes` | texto, autor                                  | ver: logueados · editar/borrar: autor               |
-| `puntajes` | juego, puntos, autor                          | ver: logueados · no editables                       |
+| Colección  | Campos                                                            | Reglas                                                                  |
+|------------|-------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `users`    | email, name, avatar, modo, acento, mensajes_vistos                | ver: logueados · editar: uno mismo · se crean desde el admin            |
+| `posts`    | tipo (momento/plan), titulo, texto, categoria, hecho, fecha, archivado, archivado_en, autor | ver: logueados · un plan lo puede completar cualquiera; un momento, solo su autor · archivar: cualquiera · borrar: autor, solo si está archivado o no tiene fotos |
+| `fotos`    | imagen (protegida), descripcion, fecha, post, autor               | ver: logueados · editar/borrar: autor                                   |
+| `notas`    | foto, autor, texto (una por persona y foto)                       | ver: logueados · editar/borrar: autor · se borran con la foto           |
+| `mensajes` | texto, autor                                                      | ver: logueados · editar/borrar: autor                                   |
+| `chat`     | tema (un solo registro, compartido)                               | ver/editar: logueados · no se crea ni se borra                          |
+| `puntajes` | juego, puntos, autor                                              | ver: logueados · no editables                                           |
+| `ideas`    | titulo, detalle, categoria, hecha, autor                          | **en desuso**: sus datos se copiaron a `posts`; se borra tras desplegar |
 
 Nadie puede crear registros a nombre del otro ni cambiar el `autor`.
 Las fotos piden un token de archivo: no se ven con solo conocer la URL.
@@ -85,7 +87,15 @@ Trabaja sobre una copia temporal de `pb_data` en el puerto 8099; la base real no
    (`nordvpn meshnet peer incoming allow <peer>`). No hace falta "acceso a red local" ni "routing".
 5. Recomendado: firewall que solo deje entrar al puerto 8090 desde la interfaz de Meshnet (`nordlynx`).
 
-Desde el celular podés "Agregar a pantalla de inicio" para usarla como app.
+### Instalarla en el celular
+
+La app trae ícono y `manifest.json` (en `web/static/`).
+
+- **Android (Chrome):** abrí la app → menú ⋮ → **Agregar a la pantalla principal**.
+- **iPhone (Safari):** botón compartir → **Agregar a inicio**.
+
+Por HTTP queda como acceso directo que abre el navegador. Para que se instale como app completa
+(sin barra del navegador, y más adelante con notificaciones) el servidor tiene que servirse por HTTPS.
 
 ## Servidor en Windows (PC viejo)
 
