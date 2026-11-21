@@ -1,16 +1,15 @@
-/* Dirección "Polaroid": fondo gris verdoso, recuerdos como polaroids, acento verde.
-   Claro y oscuro según el sistema. */
+/* Dirección "Polaroid": fondo gris verdoso y recuerdos como polaroids. */
 :root {
-	--fondo: #eef0ec;
-	--fondo-elevado: #ffffff; /* marco de polaroid, campos, barras */
-	--texto: #1f2421;
-	--texto-suave: #66706a;
-	--borde: #d9ddd6;
-	--acento: #2f6b55;
-	--acento-suave: #dde9e2;
-	--sobre-acento: #ffffff;
-	--peligro: #b3362f;
-	--sombra-polaroid: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 14px rgb(0 0 0 / 0.04);
+	--fondo: light-dark(#eef0ec, #121513);
+	--fondo-elevado: light-dark(#ffffff, #1c201d);
+	--texto: light-dark(#1f2421, #e8ece9);
+	--texto-suave: light-dark(#66706a, #8f9992);
+	--borde: light-dark(#d9ddd6, #2a2f2b);
+	--sobre-acento: light-dark(#ffffff, #121513);
+	--peligro: light-dark(#b3362f, #f08a80);
+	--sombra-polaroid:
+		0 1px 2px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.4)),
+		0 4px 14px light-dark(rgb(0 0 0 / 0.04), transparent);
 
 	--fuente-ui: 'Onest Variable', system-ui, sans-serif;
 	--fuente-titulo: 'Bricolage Grotesque Variable', 'Onest Variable', sans-serif;
@@ -22,19 +21,39 @@
 }
 
 @media (prefers-color-scheme: dark) {
-	:root {
-		--fondo: #121513;
-		--fondo-elevado: #1c201d;
-		--texto: #e8ece9;
-		--texto-suave: #8f9992;
-		--borde: #2a2f2b;
-		--acento: #7cc4a4;
-		--acento-suave: #213129;
-		--sobre-acento: #121513;
-		--peligro: #f08a80;
-		--sombra-polaroid: 0 1px 2px rgb(0 0 0 / 0.4);
+	:root:not([data-modo='claro']) {
 		color-scheme: dark;
 	}
+}
+
+:root[data-modo='oscuro'] {
+	color-scheme: dark;
+}
+
+:root,
+[data-acento='verde'] {
+	--acento: light-dark(#2f6b55, #7cc4a4);
+	--acento-suave: light-dark(#dde9e2, #213129);
+}
+
+[data-acento='azul'] {
+	--acento: light-dark(#2f5a8a, #8db4e6);
+	--acento-suave: light-dark(#dfeaf6, #202f44);
+}
+
+[data-acento='vino'] {
+	--acento: light-dark(#8a2c46, #e58fa8);
+	--acento-suave: light-dark(#f4e1e7, #3b232f);
+}
+
+[data-acento='ambar'] {
+	--acento: light-dark(#8a5a12, #e8b45e);
+	--acento-suave: light-dark(#f3e8d2, #3a2b18);
+}
+
+[data-acento='grafito'] {
+	--acento: light-dark(#3b3f45, #c3c8cf);
+	--acento-suave: light-dark(#e5e7ea, #303238);
 }
 
 * {

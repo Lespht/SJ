@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import Avatar from '#lib/Avatar.svelte';
 	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import {
@@ -9,9 +10,29 @@
 		pb,
 		sesion,
 		urlFoto,
+		type Acento,
+		type Modo,
 		type Post
 	} from '#lib/pb.svelte.js';
+	import { guardarAjustes, temaDe } from '#lib/perfil.svelte.js';
 	import { borrarPost, restaurar } from '#lib/posts.js';
+
+	const modos = [
+		{ valor: 'sistema', etiqueta: 'Sistema' },
+		{ valor: 'claro', etiqueta: 'Claro' },
+		{ valor: 'oscuro', etiqueta: 'Oscuro' }
+	] as const;
+	const acentos = [
+		{ valor: 'verde', etiqueta: 'Verde' },
+		{ valor: 'azul', etiqueta: 'Azul' },
+		{ valor: 'vino', etiqueta: 'Vino' },
+		{ valor: 'ambar', etiqueta: 'Ámbar' },
+		{ valor: 'grafito', etiqueta: 'Grafito' }
+	] as const;
+	const tema = $derived(temaDe(sesion.usuario));
+	let borradorNombre = $state<string>();
+	let subiendoAvatar = $state(false);
+	let errorPerfil = $state('');
 
 	let archivados = $state<Post[]>([]);
 	const urls = new Map<string, string>();
@@ -40,6 +61,45 @@
 		}
 	});
 
+	async function cambiarFoto(input: HTMLInputElement) {
+		const avatar = input.files?.[0];
+		input.value = '';
+		if (!avatar || !sesion.usuario || subiendoAvatar) return;
+		subiendoAvatar = true;
+		errorPerfil = '';
+		try {
+			await guardarAjustes(sesion.usuario.id, { avatar });
+		} catch {
+			errorPerfil = 'No se pudo cambiar la foto de perfil.';
+		} finally {
+			subiendoAvatar = false;
+		}
+	}
+
+	async function guardarNombre(valor: string) {
+		const usuario = sesion.usuario;
+		if (!usuario || borradorNombre === undefined) return;
+		const name = valor.trim();
+		errorPerfil = '';
+		try {
+			if (name !== (usuario.name ?? '')) await guardarAjustes(usuario.id, { name });
+			if (borradorNombre === valor) borradorNombre = undefined;
+		} catch {
+			errorPerfil = 'No se pudo guardar el nombre.';
+		}
+	}
+
+	async function elegirTema(cambio: { modo: Modo } | { acento: Acento }) {
+		if (!sesion.usuario) return;
+		if ('modo' in cambio ? cambio.modo === tema.modo : cambio.acento === tema.acento) return;
+		errorPerfil = '';
+		try {
+			await guardarAjustes(sesion.usuario.id, cambio);
+		} catch {
+			errorPerfil = 'No se pudo guardar la apariencia.';
+		}
+	}
+
 	async function quitar(post: Post, accion: (post: Post) => Promise<unknown>) {
 		if (ocupado) return;
 		ocupado = true;
@@ -56,8 +116,78 @@
 	}
 </script>
 
-<h1>{nombre(sesion.usuario)}</h1>
-<p class="suave">{sesion.usuario?.email}</p>
+<h1>Perfil</h1>
+
+<section class="ajustes tarjeta" aria-label="Ajustes de perfil">
+	<div class="identidad">
+		<Avatar usuario={sesion.usuario} tam={80} />
+		<div>
+			<strong>{nombre(sesion.usuario)}</strong>
+			<p class="suave">{sesion.usuario?.email}</p>
+			<label class="cambiar-foto" class:subiendo={subiendoAvatar}>
+				<input
+					class="oculto"
+					type="file"
+					accept="image/*"
+					disabled={subiendoAvatar}
+					onchange={(e) => cambiarFoto(e.currentTarget)}
+				/>
+				{subiendoAvatar ? 'Guardando foto…' : 'Cambiar foto'}
+			</label>
+		</div>
+	</div>
+
+	<label class="nombre">
+		Cómo te ven
+		<input
+			type="text"
+			autocomplete="nickname"
+			maxlength="40"
+			value={borradorNombre ?? sesion.usuario?.name ?? ''}
+			oninput={(e) => (borradorNombre = e.currentTarget.value)}
+			onblur={(e) => guardarNombre(e.currentTarget.value)}
+			onkeydown={(e) => {
+				if (e.key === 'Enter' && !e.isComposing) {
+					e.preventDefault();
+					e.currentTarget.blur();
+				}
+			}}
+		/>
+	</label>
+
+	<fieldset>
+		<legend>Modo</legend>
+		<div class="segmentos">
+			{#each modos as { valor, etiqueta } (valor)}
+				<button
+					type="button"
+					aria-pressed={tema.modo === valor}
+					onclick={() => elegirTema({ modo: valor })}
+				>
+					{etiqueta}
+				</button>
+			{/each}
+		</div>
+	</fieldset>
+
+	<fieldset>
+		<legend>Acento</legend>
+		<div class="acentos">
+			{#each acentos as { valor, etiqueta } (valor)}
+				<button
+					type="button"
+					class="muestra"
+					data-acento={valor}
+					aria-label={etiqueta}
+					aria-pressed={tema.acento === valor}
+					onclick={() => elegirTema({ acento: valor })}
+				></button>
+			{/each}
+		</div>
+	</fieldset>
+
+	{#if errorPerfil}<p class="error" role="alert">{errorPerfil}</p>{/if}
+</section>
 
 <button class="fantasma salir" onclick={() => pb.authStore.clear()}>
 	<Icono nombre="salir" tam={20} />
@@ -111,8 +241,102 @@
 </section>
 
 <style>
-	h1 {
-		margin-bottom: 0;
+	.ajustes {
+		display: grid;
+		gap: 1rem;
+		margin-top: 0;
+	}
+	.identidad {
+		display: flex;
+		align-items: center;
+		gap: 0.85rem;
+		overflow-wrap: anywhere;
+	}
+	.identidad p,
+	.ajustes .error {
+		margin: 0;
+	}
+	.cambiar-foto {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		min-height: 36px;
+		color: var(--acento);
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.cambiar-foto:focus-within {
+		outline: 2px solid var(--acento);
+		outline-offset: 2px;
+	}
+	.cambiar-foto.subiendo {
+		color: var(--texto-suave);
+		cursor: wait;
+	}
+	.oculto {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		border: 0;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+	.nombre {
+		display: grid;
+		gap: 0.3rem;
+	}
+	fieldset {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+	legend {
+		margin-bottom: 0.3rem;
+		padding: 0;
+	}
+	.segmentos {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.2rem;
+		padding: 0.2rem;
+		border: 1px solid var(--borde);
+		border-radius: 12px;
+	}
+	.segmentos button {
+		padding-inline: 0.25rem;
+		background: transparent;
+		color: var(--texto-suave);
+	}
+	.segmentos button[aria-pressed='true'] {
+		background: var(--acento-suave);
+		color: var(--acento);
+	}
+	.acentos {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+	.muestra {
+		display: grid;
+		width: 44px;
+		height: 44px;
+		place-items: center;
+		padding: 0;
+		border-radius: 50%;
+		background: transparent;
+	}
+	.muestra::before {
+		width: 30px;
+		height: 30px;
+		border-radius: 50%;
+		background: var(--acento);
+		content: '';
+	}
+	.muestra[aria-pressed='true']::before {
+		outline: 2px solid var(--texto);
+		outline-offset: 3px;
 	}
 	.salir {
 		display: inline-flex;

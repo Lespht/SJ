@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import Avatar from '#lib/Avatar.svelte';
 	import { cargarFeed, feed, fotosDe, planPendienteAlAzar } from '#lib/feed.svelte.js';
 	import Mazo from '#lib/Mazo.svelte';
 	import {
@@ -117,7 +118,7 @@
 			.sort((a, b) => a.created.localeCompare(b.created))}
 		<article class="post">
 			<header class="autor">
-				<span class="inicial" aria-hidden="true">{nombre(post.expand?.autor).charAt(0)}</span>
+				<Avatar usuario={post.expand?.autor} />
 				<span class="quien">{nombre(post.expand?.autor)}</span>
 				<span class="suave">{fechaRelativa(post.fecha || post.created)}</span>
 			</header>
@@ -204,18 +205,6 @@
 		/* Las polaroids de atrás del mazo están giradas: sin este aire tapan la inicial. */
 		margin-bottom: 0.75rem;
 		font-size: 0.9rem;
-	}
-	.inicial {
-		width: 1.9rem;
-		height: 1.9rem;
-		display: grid;
-		place-items: center;
-		border-radius: 50%;
-		background: var(--acento-suave);
-		color: var(--acento);
-		font-family: var(--fuente-titulo);
-		font-weight: 700;
-		text-transform: uppercase;
 	}
 	.quien {
 		font-weight: 600;

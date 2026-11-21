@@ -3,10 +3,15 @@ import PocketBase, { type RecordModel } from 'pocketbase';
 // Mismo origen: en producción la sirve PocketBase y en dev el proxy de Vite.
 export const pb = new PocketBase('/');
 
+export type Modo = 'sistema' | 'claro' | 'oscuro';
+export type Acento = 'verde' | 'azul' | 'vino' | 'ambar' | 'grafito';
+
 export type Usuario = RecordModel & {
 	name?: string;
 	email: string;
 	avatar?: string;
+	modo?: Modo | '';
+	acento?: Acento | '';
 	/** Hasta cuándo vio el chat; vacío si nunca lo abrió desde NOS-18. */
 	mensajes_vistos?: string;
 };

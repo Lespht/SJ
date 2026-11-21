@@ -6,6 +6,7 @@
 	import Hoja from '#lib/Hoja.svelte';
 	import BotonMensajes from '#lib/BotonMensajes.svelte';
 	import { sesion, renovarSesion } from '#lib/pb.svelte.js';
+	import { temaDe } from '#lib/perfil.svelte.js';
 	import Icono, { type NombreIcono } from '#lib/Icono.svelte';
 	import type { LayoutProps } from './$types';
 	import '@fontsource-variable/onest';
@@ -34,6 +35,18 @@
 	];
 
 	const enLogin = $derived(page.url.pathname === '/login');
+	const tema = $derived(temaDe(sesion.usuario));
+
+	$effect(() => {
+		const raiz = document.documentElement;
+		if (sesion.usuario) {
+			raiz.dataset.modo = tema.modo;
+			raiz.dataset.acento = tema.acento;
+		} else {
+			delete raiz.dataset.modo;
+			delete raiz.dataset.acento;
+		}
+	});
 
 	// Guardia simple: sin sesión → login. Con sesión en /login → inicio.
 	$effect(() => {
@@ -53,8 +66,12 @@
 
 <svelte:head>
 	<title>Nosotros</title>
-	<meta name="theme-color" content="#eef0ec" media="(prefers-color-scheme: light)" />
-	<meta name="theme-color" content="#121513" media="(prefers-color-scheme: dark)" />
+	{#if tema.modo === 'sistema'}
+		<meta name="theme-color" content="#eef0ec" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#121513" media="(prefers-color-scheme: dark)" />
+	{:else}
+		<meta name="theme-color" content={tema.modo === 'oscuro' ? '#121513' : '#eef0ec'} />
+	{/if}
 </svelte:head>
 
 {#if enLogin}
