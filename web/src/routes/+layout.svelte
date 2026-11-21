@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { pb, sesion, nombre } from '#lib/pb.svelte.js';
+	import { pb, sesion, nombre, renovarSesion } from '#lib/pb.svelte.js';
 	import type { LayoutProps } from './$types';
 	import './app.css';
 
@@ -23,13 +23,9 @@
 		if (sesion.usuario && enLogin) goto('/', { replaceState: true });
 	});
 
-	// Renueva el token al abrir la app; si ya no es válido, cierra sesión.
+	// Renueva el token al abrir la app (sin red, la sesión se mantiene).
 	$effect(() => {
-		if (pb.authStore.isValid) {
-			pb.collection('users')
-				.authRefresh()
-				.catch(() => pb.authStore.clear());
-		}
+		renovarSesion();
 	});
 
 	function activa(href: string) {

@@ -52,6 +52,20 @@ pb.authStore.onChange(() => {
 	sesion.usuario = pb.authStore.isValid ? (pb.authStore.record as Usuario) : null;
 });
 
+/**
+ * Renueva el token al abrir la app. Solo cierra la sesión si el servidor dice que el
+ * token ya no sirve (401/403/404). Sin red o con el servidor caído, la sesión se mantiene.
+ */
+export async function renovarSesion() {
+	if (!pb.authStore.isValid) return;
+	try {
+		await pb.collection('users').authRefresh();
+	} catch (e) {
+		const status = (e as { status?: number }).status ?? 0;
+		if ([401, 403, 404].includes(status)) pb.authStore.clear();
+	}
+}
+
 export function nombre(u?: Usuario | null) {
 	if (!u) return '?';
 	return u.name || u.email.split('@')[0];
