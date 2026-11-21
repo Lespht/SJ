@@ -127,7 +127,7 @@
 						{#if esMio}
 							<button
 								type="button"
-								class="fantasma"
+								class="fantasma peligro"
 								role="menuitem"
 								onclick={() => {
 									menuAbierto = false;
@@ -263,8 +263,11 @@
 		gap: 0.5rem;
 		min-height: 44px;
 		padding: 0 0.75rem;
-		color: var(--peligro);
+		color: var(--texto);
 		text-align: left;
+	}
+	.menu .peligro {
+		color: var(--peligro);
 	}
 	.post {
 		display: grid;
