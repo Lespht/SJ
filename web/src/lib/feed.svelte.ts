@@ -11,11 +11,12 @@ export function refrescarInicio(): void {
 }
 
 export const EXPAND_POST =
-	'autor,fotos_via_post,fotos_via_post.notas_via_foto,fotos_via_post.notas_via_foto.autor';
+	'autor,fotos_via_post,fotos_via_post.notas_via_foto,fotos_via_post.notas_via_foto.autor,' +
+	'posts_via_respuesta_a,posts_via_respuesta_a.autor,posts_via_respuesta_a.fotos_via_post,respuesta_a.autor';
 
 export async function cargarFeed(pagina: number): Promise<{ items: Post[]; hayMas: boolean }> {
 	const { items, page, totalPages } = await pb.collection('posts').getList<Post>(pagina, 10, {
-		filter: "archivado = false && (tipo = 'momento' || hecho = true)",
+		filter: "archivado = false && respuesta_a = '' && (tipo = 'momento' || hecho = true)",
 		sort: '-fecha,-created',
 		expand: EXPAND_POST
 	});
@@ -30,6 +31,18 @@ export function fotosDe(post: Post): Foto[] {
 	return [...(post.expand?.fotos_via_post ?? [])].sort((a, b) =>
 		a.created.localeCompare(b.created)
 	);
+}
+
+export function respuestaDe(post: Post): Post | undefined {
+	const respuesta = post.expand?.posts_via_respuesta_a;
+	return Array.isArray(respuesta) ? respuesta[0] : respuesta;
+}
+
+export function fotosDelHilo(post: Post): Foto[] {
+	const respuesta = respuestaDe(post);
+	return respuesta && !respuesta.archivado
+		? [...fotosDe(post), ...fotosDe(respuesta)]
+		: fotosDe(post);
 }
 
 export async function proximoPlan(hoy: string): Promise<Post | null> {

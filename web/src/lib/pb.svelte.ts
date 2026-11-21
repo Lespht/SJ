@@ -43,7 +43,13 @@ export type Post = RecordModel & {
 	archivado: boolean;
 	archivado_en: string;
 	autor: string;
-	expand?: { autor?: Usuario; fotos_via_post?: Foto[] };
+	respuesta_a: string;
+	expand?: {
+		autor?: Usuario;
+		fotos_via_post?: Foto[];
+		respuesta_a?: Post;
+		posts_via_respuesta_a?: Post | Post[];
+	};
 };
 
 /** Nota de una persona sobre una foto (una por persona por foto). */

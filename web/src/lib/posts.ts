@@ -74,14 +74,21 @@ export class ErrorFotosMomento extends Error {
 	}
 }
 
-export async function crearMomento(archivos: File[], texto: string, fecha: string, autor: string) {
+export async function crearMomento(
+	archivos: File[],
+	texto: string,
+	fecha: string,
+	autor: string,
+	respuestaA?: string
+) {
 	if (!archivos.length) throw new Error('Elegí al menos una foto.');
 	const cuando = aFechaGuardada(fecha);
 	const momento = await pb.collection('posts').create<Post>({
 		tipo: 'momento',
 		texto,
 		fecha: cuando,
-		autor
+		autor,
+		...(respuestaA ? { respuesta_a: respuestaA } : {})
 	});
 	return subirFotos(
 		momento,

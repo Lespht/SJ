@@ -7,7 +7,8 @@
 	import { fechaCortaDia } from './calendario.js';
 	import Confirmar from './Confirmar.svelte';
 	import EditarPost from './EditarPost.svelte';
-	import { fotosDe } from './feed.svelte.js';
+	import { feed, fotosDe, respuestaDe } from './feed.svelte.js';
+	import Hoja from './Hoja.svelte';
 	import Icono from './Icono.svelte';
 	import Mazo from './Mazo.svelte';
 	import { fechaRelativa, nombre, sesion, type Post } from './pb.svelte.js';
@@ -17,19 +18,22 @@
 		post,
 		urls,
 		alQuitar,
-		alCambiar
+		alCambiar,
+		alResponder
 	}: {
 		post: Post;
 		urls: Map<string, string>;
 		/** Se llama cuando el post se borró o se archivó desde su menú. */
 		alQuitar?: () => void;
 		alCambiar?: (post: Post) => void;
+		alResponder?: () => void;
 	} = $props();
 
 	const esMio = $derived(!!sesion.usuario && post.autor === sesion.usuario.id);
 	let menuAbierto = $state(false);
 	let confirmando = $state(false);
 	let editando = $state(false);
+	let respondiendo = $state(false);
 	let menu = $state<HTMLElement>();
 	let botonOpciones = $state<HTMLButtonElement>();
 
@@ -64,6 +68,11 @@
 	}
 
 	const esPlan = $derived(post.tipo === 'plan');
+	const respuesta = $derived(respuestaDe(post));
+	const respuestaVisible = $derived(respuesta && !respuesta.archivado ? respuesta : undefined);
+	const puedeResponder = $derived(
+		!!sesion.usuario && !esMio && !esPlan && !post.respuesta_a && !respuesta
+	);
 	const pendiente = $derived(esPlan && !post.hecho);
 	const categoria = $derived(categoriasPlan.find(({ valor }) => valor === post.categoria)?.label);
 	const fotos = $derived(fotosDe(post));
@@ -84,7 +93,7 @@
 	</div>
 {/snippet}
 
-<article class="post" class:momento={!esPlan}>
+<article class="post" class:momento={!esPlan} class:con-respuesta={!!respuestaVisible}>
 	<header class="autor">
 		<Avatar usuario={post.expand?.autor} />
 		<span class="quien">{nombre(post.expand?.autor)}</span>
@@ -187,22 +196,59 @@
 			<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
 		{/each}
 	</div>
+	{#if respuestaVisible}
+		{@const fotosRespuesta = fotosDe(respuestaVisible)}
+		<a class="respuesta polaroid" href={`/post/${respuestaVisible.id}`}>
+			<span class="respuesta-autor">
+				<span aria-hidden="true">↩</span>
+				{nombre(respuestaVisible.expand?.autor)}
+			</span>
+			{#if fotosRespuesta.length}
+				<div inert>
+					{#key fotosRespuesta.map((foto) => foto.id).join(',')}
+						<Mazo
+							fotos={fotosRespuesta.map((foto) => ({
+								id: foto.id,
+								src: urls.get(foto.id) ?? '',
+								alt: foto.descripcion
+							}))}
+						/>
+					{/key}
+				</div>
+			{/if}
+			{#if respuestaVisible.texto}<p class="texto">{respuestaVisible.texto}</p>{/if}
+		</a>
+	{:else if puedeResponder}
+		<button class="fantasma responder" onclick={() => (respondiendo = true)}>Responder</button>
+	{/if}
+	{#if respondiendo && sesion.usuario}
+		<Hoja
+			autor={sesion.usuario.id}
+			respuestaA={{ id: post.id, nombre: nombre(post.expand?.autor) }}
+			cerrar={() => (respondiendo = false)}
+			compartir={() => {
+				respondiendo = false;
+				feed.version += 1;
+				alResponder?.();
+			}}
+		/>
+	{/if}
 </article>
 
 <style>
 	/* Giro alterno de cada post, como fotos sueltas sobre la mesa. */
-	.post:nth-child(odd) :global(.mazo),
+	.post:nth-child(odd) > .marco-mazo :global(.mazo),
 	.esqueleto:nth-child(odd) {
 		transform: rotate(-0.8deg);
 	}
-	.post:nth-child(even) :global(.mazo),
+	.post:nth-child(even) > .marco-mazo :global(.mazo),
 	.esqueleto:nth-child(even) {
 		transform: rotate(0.7deg);
 	}
-	.momento:nth-child(odd) :global(.mazo) {
+	.momento:nth-child(odd) > .marco-mazo :global(.mazo) {
 		transform: rotate(-1.2deg) scale(0.92);
 	}
-	.momento:nth-child(even) :global(.mazo) {
+	.momento:nth-child(even) > .marco-mazo :global(.mazo) {
 		transform: rotate(1.2deg) scale(0.92);
 	}
 	.marco-mazo {
@@ -311,6 +357,35 @@
 	}
 	.momento .texto {
 		font-style: italic;
+	}
+	.con-respuesta > .pie {
+		padding-bottom: 1.5rem;
+	}
+	.respuesta {
+		display: grid;
+		justify-self: end;
+		gap: 0.4rem;
+		width: 80%;
+		margin: -1.5rem 0.25rem 0 0;
+		color: var(--texto);
+		text-decoration: none;
+		overflow-wrap: anywhere;
+		transform: rotate(1.2deg);
+	}
+	.post:nth-child(even) .respuesta {
+		transform: rotate(-1.2deg);
+	}
+	.respuesta-autor {
+		color: var(--texto-suave);
+		font-size: 0.85rem;
+	}
+	.respuesta p {
+		margin: 0;
+	}
+	.responder {
+		justify-self: start;
+		color: var(--acento);
+		padding-inline: 0.75rem;
 	}
 	.brillo {
 		background: linear-gradient(100deg, var(--fondo) 25%, var(--borde) 50%, var(--fondo) 75%);

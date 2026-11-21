@@ -94,6 +94,26 @@ st, _ = req("DELETE", f"{P}/{p2['id']}", B); caso("B no borra el plan que creó 
 st, _ = req("DELETE", f"{F}/{fb['id']}", B); caso("B saca su foto del plan", True, st)
 st, _ = req("DELETE", f"{P}/{p2['id']}", A); caso("A borra su plan con solo sus fotos", True, st)
 
+# NOS-42 · respuestas. Se usa otro momento propio para que el rechazo no dependa del índice.
+def responder(token, uid, original):
+    return req("POST", P, token, {"tipo": "momento", "texto": "[prueba] respuesta", "autor": uid, "respuesta_a": original})
+
+st, original = req("POST", P, A, {"tipo": "momento", "texto": "[prueba] original", "autor": a_id})
+assert st == 200, st
+st, propio = req("POST", P, A, {"tipo": "momento", "texto": "[prueba] propio", "autor": a_id})
+assert st == 200, st
+st, plan = req("POST", P, A, {"tipo": "plan", "titulo": "[prueba] no admite respuestas", "autor": a_id})
+assert st == 200, st
+st, respuesta = responder(B, b_id, original["id"]); caso("B responde el momento de A", True, st)
+st, _ = responder(B, b_id, original["id"]); caso("B no responde dos veces el mismo momento", False, st)
+st, _ = responder(A, a_id, propio["id"]); caso("A no responde su propio momento", False, st)
+st, _ = responder(B, b_id, plan["id"]); caso("B no responde un plan", False, st)
+if "id" in respuesta:
+    st, _ = responder(A, a_id, respuesta["id"]); caso("A no puede responder una respuesta", False, st)
+    st, _ = req("PATCH", f"{P}/{respuesta['id']}", B, {"respuesta_a": propio["id"]}); caso("B no cambia el original de su respuesta", False, st)
+    st, _ = req("DELETE", f"{P}/{original['id']}", A); caso("A borra el momento original", True, st)
+    st, suelta = req("GET", f"{P}/{respuesta['id']}", B); caso("la respuesta sigue existiendo sin original", True, st if suelta.get("respuesta_a") == "" else 0)
+
 # limpieza (solo en la copia)
 for uid in (a_id, b_id):
     req("DELETE", f"/api/collections/users/records/{uid}", SU)

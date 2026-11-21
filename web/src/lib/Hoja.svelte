@@ -13,8 +13,17 @@
 	} from './posts.js';
 	import type { Post } from './pb.svelte.js';
 
-	let { autor, cerrar, compartir }: { autor: string; cerrar: () => void; compartir: () => void } =
-		$props();
+	let {
+		autor,
+		cerrar,
+		compartir,
+		respuestaA
+	}: {
+		autor: string;
+		cerrar: () => void;
+		compartir: () => void;
+		respuestaA?: { id: string; nombre: string };
+	} = $props();
 
 	const hoy = new Date();
 	let fecha = $state(
@@ -73,7 +82,7 @@
 			if (reintentar) {
 				await reintentar();
 			} else if (modo === 'momento') {
-				await crearMomento(archivos, textoMomento, fecha, autor);
+				await crearMomento(archivos, textoMomento, fecha, autor, respuestaA?.id);
 			} else {
 				const plan = await crearPlan({ titulo: titulo.trim(), texto: textoPlan, categoria, autor });
 				if (hecho) {
@@ -138,7 +147,7 @@
 
 <dialog
 	bind:this={dialogo}
-	aria-label="Compartir"
+	aria-labelledby="titulo-hoja"
 	oncancel={(evento) => {
 		evento.preventDefault();
 		pedirCierre();
@@ -159,7 +168,7 @@
 		transition:fly|global={{ y: '100%', duration: prefersReducedMotion.current ? 0 : 280 }}
 	>
 		<div class="cabecera">
-			<h2>Compartir</h2>
+			<h2 id="titulo-hoja">{respuestaA ? `Responder a ${respuestaA.nombre}` : 'Compartir'}</h2>
 			<button
 				type="button"
 				class="icono cerrar"
@@ -172,14 +181,20 @@
 		</div>
 
 		<fieldset class="campos" disabled={subiendo || !!reintentar}>
-			<div class="segmentos" role="group" aria-label="Tipo de publicación">
-				<button type="button" aria-pressed={modo === 'momento'} onclick={() => (modo = 'momento')}>
-					Momento
-				</button>
-				<button type="button" aria-pressed={modo === 'plan'} onclick={() => (modo = 'plan')}>
-					Plan
-				</button>
-			</div>
+			{#if !respuestaA}
+				<div class="segmentos" role="group" aria-label="Tipo de publicación">
+					<button
+						type="button"
+						aria-pressed={modo === 'momento'}
+						onclick={() => (modo = 'momento')}
+					>
+						Momento
+					</button>
+					<button type="button" aria-pressed={modo === 'plan'} onclick={() => (modo = 'plan')}>
+						Plan
+					</button>
+				</div>
+			{/if}
 
 			{#if modo === 'momento'}
 				{@render selectorFotos()}
@@ -230,7 +245,13 @@
 			class="publicar"
 			disabled={subiendo || (modo === 'momento' ? !fotos.length : !titulo.trim())}
 		>
-			{subiendo ? 'Compartiendo…' : modo === 'momento' ? 'Compartir' : 'Guardar plan'}
+			{subiendo
+				? 'Compartiendo…'
+				: respuestaA
+					? 'Responder'
+					: modo === 'momento'
+						? 'Compartir'
+						: 'Guardar plan'}
 		</button>
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
 	</form>

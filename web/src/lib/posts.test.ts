@@ -98,6 +98,22 @@ it('reintenta desde la foto que falló y usa hoy para un plan sin fecha', async 
 	);
 });
 
+it('guarda el original cuando el momento es una respuesta', async () => {
+	const momento = { id: 'm2', tipo: 'momento' } as Post;
+	const crear = vi.spyOn(pb.collection('posts'), 'create').mockResolvedValue(momento);
+	vi.spyOn(pb.collection('fotos'), 'create').mockResolvedValue({ id: 'f1' } as Foto);
+	const foto = new File(['foto'], 'respuesta.jpg');
+
+	await expect(crearMomento([foto], 'hola', fecha, 'u2', 'm1')).resolves.toBe(momento);
+	expect(crear).toHaveBeenCalledExactlyOnceWith({
+		tipo: 'momento',
+		texto: 'hola',
+		fecha: fechaGuardada,
+		autor: 'u2',
+		respuesta_a: 'm1'
+	});
+});
+
 it('crea un solo momento y le vincula sus dos fotos', async () => {
 	const momento = { id: 'm1', tipo: 'momento' } as Post;
 	const crear = vi.spyOn(pb.collection('posts'), 'create').mockResolvedValue(momento);

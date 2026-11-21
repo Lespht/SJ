@@ -4,10 +4,11 @@
 	import {
 		cargarFeed,
 		feed,
-		fotosDe,
+		fotosDelHilo,
 		planPendienteAlAzar,
 		proximoPlan,
-		refrescarInicio
+		refrescarInicio,
+		respuestaDe
 	} from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import { nombre, obtenerTokenArchivo, urlFoto, type Post } from '#lib/pb.svelte.js';
@@ -133,7 +134,7 @@
 	}
 
 	async function cambiarPost(actualizado: Post) {
-		const nuevas = fotosDe(actualizado).filter((foto) => !urls.has(foto.id));
+		const nuevas = fotosDelHilo(actualizado).filter((foto) => !urls.has(foto.id));
 		if (nuevas.length) {
 			const token = await obtenerTokenArchivo().catch(() => null);
 			if (token) for (const foto of nuevas) urls.set(foto.id, urlFoto(foto, token, '800x0'));
@@ -152,7 +153,7 @@
 			const ids = new Set(posts.map((post) => post.id));
 			const nuevos = items.filter((post) => !ids.has(post.id));
 			for (const post of nuevos) {
-				for (const foto of post.expand?.fotos_via_post ?? []) {
+				for (const foto of fotosDelHilo(post)) {
 					if (!urls.has(foto.id)) urls.set(foto.id, urlFoto(foto, token, '800x0'));
 				}
 			}
@@ -221,7 +222,10 @@
 			{post}
 			{urls}
 			alCambiar={cambiarPost}
-			alQuitar={() => (posts = posts.filter((otro) => otro.id !== post.id))}
+			alQuitar={() => {
+				posts = posts.filter((otro) => otro.id !== post.id);
+				if (respuestaDe(post)) feed.version += 1;
+			}}
 		/>
 	{/each}
 

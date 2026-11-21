@@ -47,10 +47,9 @@ describe('cargarFeed', () => {
 
 		await expect(cargarFeed(1)).resolves.toEqual({ items, hayMas: true });
 		expect(getList).toHaveBeenCalledExactlyOnceWith(1, 10, {
-			filter: "archivado = false && (tipo = 'momento' || hecho = true)",
+			filter: "archivado = false && respuesta_a = '' && (tipo = 'momento' || hecho = true)",
 			sort: '-fecha,-created',
-			expand:
-				'autor,fotos_via_post,fotos_via_post.notas_via_foto,fotos_via_post.notas_via_foto.autor'
+			expand: EXPAND_POST
 		});
 	});
 
@@ -70,8 +69,17 @@ describe('cargarPost', () => {
 	});
 
 	it('incluye el autor, las fotos y las notas con sus autores', () => {
-		expect(EXPAND_POST).toBe(
-			'autor,fotos_via_post,fotos_via_post.notas_via_foto,fotos_via_post.notas_via_foto.autor'
+		expect(EXPAND_POST.split(',')).toEqual(
+			expect.arrayContaining([
+				'autor',
+				'fotos_via_post',
+				'fotos_via_post.notas_via_foto',
+				'fotos_via_post.notas_via_foto.autor',
+				'posts_via_respuesta_a',
+				'posts_via_respuesta_a.autor',
+				'posts_via_respuesta_a.fotos_via_post',
+				'respuesta_a.autor'
+			])
 		);
 	});
 });
