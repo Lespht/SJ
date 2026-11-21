@@ -1,19 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { scale } from 'svelte/transition';
-	import { avisoChoque, diaDe, hoyLocal, planesDelDia } from '#lib/calendario.js';
+	import { avisoChoque, diaDe, fechaCortaDia, hoyLocal, planesDelDia } from '#lib/calendario.js';
+	import Calendario from '#lib/Calendario.svelte';
 	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
-	import {
-		fechaCorta,
-		nombre,
-		obtenerTokenArchivo,
-		pb,
-		sesion,
-		urlFoto,
-		type Post
-	} from '#lib/pb.svelte.js';
+	import { nombre, obtenerTokenArchivo, pb, sesion, urlFoto, type Post } from '#lib/pb.svelte.js';
 	import {
 		archivar,
 		borrarPost,
@@ -43,6 +38,8 @@
 	let archivos = $state<FileList>();
 	let fecha = $state('');
 	let animar = $state<string>();
+	let calendario = $state<ReturnType<typeof Calendario>>();
+	const vistaCalendario = $derived(page.url.searchParams.get('vista') === 'calendario');
 
 	const visibles = $derived(
 		planes.filter((plan) => (verHechos || !plan.hecho) && (!filtro || plan.categoria === filtro))
@@ -57,6 +54,14 @@
 			cargando = false;
 		}
 	});
+
+	function cambiarVista(verCalendario: boolean) {
+		if (vistaCalendario === verCalendario) return;
+		const url = new URL(page.url.href);
+		if (verCalendario) url.searchParams.set('vista', 'calendario');
+		else url.searchParams.delete('vista');
+		return goto(url, { replace: true, reset: false });
+	}
 
 	async function cargar() {
 		const resultados = await pb.collection('posts').getFullList<Post>({
@@ -91,6 +96,7 @@
 			texto = '';
 			diaNuevo = '';
 			horaNueva = '';
+			calendario?.recargar();
 			await cargar();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'No se pudo guardar el plan.';
@@ -116,6 +122,7 @@
 				item.id === plan.id ? { ...item, fecha: actualizado.fecha, hora: actualizado.hora } : item
 			);
 			editandoFecha = undefined;
+			calendario?.recargar();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'No se pudo guardar la fecha.';
 		} finally {
@@ -215,157 +222,180 @@
 	<button disabled={ocupado || cargando}>Agregar</button>
 </form>
 
-<div class="filtros">
-	<button class:activo={filtro === ''} onclick={() => (filtro = '')}>Todas</button>
-	{#each categoriasPlan as c (c.valor)}
-		<button class:activo={filtro === c.valor} onclick={() => (filtro = c.valor)}>{c.label}</button>
-	{/each}
-	<label class="hechas"><input type="checkbox" bind:checked={verHechos} /> Ver hechos</label>
+<div class="vistas" role="group" aria-label="Vista de planes">
+	<button
+		class:fantasma={vistaCalendario}
+		aria-pressed={!vistaCalendario}
+		onclick={() => cambiarVista(false)}
+	>
+		Lista
+	</button>
+	<button
+		class:fantasma={!vistaCalendario}
+		aria-pressed={vistaCalendario}
+		onclick={() => cambiarVista(true)}
+	>
+		Calendario
+	</button>
 </div>
 
 {#if error}<p class="error" role="alert">{error}</p>{/if}
 
-<ul aria-busy={cargando}>
-	{#if cargando}
-		{#each [1, 2, 3] as n (n)}
-			<li class="pendiente esqueleto" aria-hidden="true"></li>
+{#if vistaCalendario}
+	<Calendario hoy={hoyLocal()} bind:this={calendario} />
+{:else}
+	<div class="filtros">
+		<button class:activo={filtro === ''} onclick={() => (filtro = '')}>Todas</button>
+		{#each categoriasPlan as c (c.valor)}
+			<button class:activo={filtro === c.valor} onclick={() => (filtro = c.valor)}>
+				{c.label}
+			</button>
 		{/each}
-	{:else}
-		{#each visibles as plan (plan.id)}
-			{@const foto = fotosDe(plan)[0]}
-			{@const miniatura = foto && urls.get(foto.id)}
-			<li>
-				{#if plan.hecho}
-					<div
-						class="polaroid"
-						in:scale={{
-							start: 0.97,
-							duration: animar === plan.id && !prefersReducedMotion.current ? 250 : 0
-						}}
-						onintroend={() => {
-							if (animar === plan.id) animar = undefined;
-						}}
-					>
-						{#if foto && miniatura}
-							<img src={miniatura} alt={foto.descripcion} loading="lazy" />
-						{/if}
-						<div class="texto">
-							<h2>{plan.titulo}</h2>
-							{#if plan.fecha}<p class="suave">
-									{fechaCorta(`${diaDe(plan.fecha)}T12:00:00`)}
-								</p>{/if}
-							<button class="fantasma" disabled={ocupado} onclick={() => quitar(plan, archivar)}>
-								Archivar
-							</button>
-						</div>
-					</div>
-				{:else}
-					<div class="pendiente texto">
-						<div class="encabezado">
-							<h2>{plan.titulo}</h2>
-							{#if plan.autor === sesion.usuario?.id}
-								<button
-									class="icono"
-									disabled={ocupado}
-									onclick={() => quitar(plan, borrarPost)}
-									aria-label="Borrar plan"
-								>
-									<Icono nombre="cerrar" tam={18} />
-								</button>
+		<label class="hechas"><input type="checkbox" bind:checked={verHechos} /> Ver hechos</label>
+	</div>
+
+	<ul aria-busy={cargando}>
+		{#if cargando}
+			{#each [1, 2, 3] as n (n)}
+				<li class="pendiente esqueleto" aria-hidden="true"></li>
+			{/each}
+		{:else}
+			{#each visibles as plan (plan.id)}
+				{@const foto = fotosDe(plan)[0]}
+				{@const miniatura = foto && urls.get(foto.id)}
+				<li>
+					{#if plan.hecho}
+						<div
+							class="polaroid"
+							in:scale={{
+								start: 0.97,
+								duration: animar === plan.id && !prefersReducedMotion.current ? 250 : 0
+							}}
+							onintroend={() => {
+								if (animar === plan.id) animar = undefined;
+							}}
+						>
+							{#if foto && miniatura}
+								<img src={miniatura} alt={foto.descripcion} loading="lazy" />
 							{/if}
+							<div class="texto">
+								<h2>{plan.titulo}</h2>
+								{#if plan.fecha}<p class="suave">{fechaCortaDia(plan.fecha)}</p>{/if}
+								<button class="fantasma" disabled={ocupado} onclick={() => quitar(plan, archivar)}>
+									Archivar
+								</button>
+							</div>
 						</div>
-						{#if plan.texto}<p>{plan.texto}</p>{/if}
-						<p class="suave">Idea de {nombre(plan.expand?.autor)}</p>
-						{#if plan.fecha}
-							<p class="suave">
-								{fechaCorta(`${diaDe(plan.fecha)}T12:00:00`)}{plan.hora ? ` · ${plan.hora}` : ''}
-							</p>
-						{/if}
-						{#if completando === plan.id}
-							<form class="completar" onsubmit={(e) => guardar(e, plan)}>
-								<label>
-									Fotos (opcional)<input
-										type="file"
-										accept="image/*"
-										multiple
-										bind:files={archivos}
-										disabled={ocupado}
-									/>
-								</label>
-								<label>
-									Fecha<input type="date" bind:value={fecha} required disabled={ocupado} />
-								</label>
-								<div class="acciones">
-									<button disabled={ocupado}>Guardar</button>
+					{:else}
+						<div class="pendiente texto">
+							<div class="encabezado">
+								<h2>{plan.titulo}</h2>
+								{#if plan.autor === sesion.usuario?.id}
 									<button
-										type="button"
-										class="fantasma"
+										class="icono"
 										disabled={ocupado}
-										onclick={() => (completando = undefined)}
+										onclick={() => quitar(plan, borrarPost)}
+										aria-label="Borrar plan"
 									>
-										Cancelar
+										<Icono nombre="cerrar" tam={18} />
 									</button>
-								</div>
-							</form>
-						{:else if editandoFecha === plan.id}
-							<form
-								class="completar"
-								onsubmit={(e) => {
-									e.preventDefault();
-									void guardarFecha(plan, diaEditado, horaEditada);
-								}}
-							>
-								<div class="campos-fecha">
+								{/if}
+							</div>
+							{#if plan.texto}<p>{plan.texto}</p>{/if}
+							<p class="suave">Idea de {nombre(plan.expand?.autor)}</p>
+							{#if plan.fecha}
+								<p class="suave">
+									{fechaCortaDia(plan.fecha)}{plan.hora ? ` · ${plan.hora}` : ''}
+								</p>
+							{/if}
+							{#if completando === plan.id}
+								<form class="completar" onsubmit={(e) => guardar(e, plan)}>
 									<label>
-										Día (opcional)<input type="date" bind:value={diaEditado} disabled={ocupado} />
-									</label>
-									<label>
-										Hora (opcional)<input
-											type="time"
-											bind:value={horaEditada}
-											disabled={!diaEditado || ocupado}
+										Fotos (opcional)<input
+											type="file"
+											accept="image/*"
+											multiple
+											bind:files={archivos}
+											disabled={ocupado}
 										/>
 									</label>
-									{@render avisoFecha(diaEditado, plan.id)}
-								</div>
-								<div class="acciones">
-									<button disabled={ocupado}>Guardar</button>
-									{#if plan.fecha}
+									<label>
+										Fecha<input type="date" bind:value={fecha} required disabled={ocupado} />
+									</label>
+									<div class="acciones">
+										<button disabled={ocupado}>Guardar</button>
 										<button
 											type="button"
 											class="fantasma"
 											disabled={ocupado}
-											onclick={() => guardarFecha(plan, '', '')}
+											onclick={() => (completando = undefined)}
 										>
-											Quitar fecha
+											Cancelar
 										</button>
-									{/if}
-									<button
-										type="button"
-										class="fantasma"
-										disabled={ocupado}
-										onclick={() => (editandoFecha = undefined)}
-									>
-										Cancelar
+									</div>
+								</form>
+							{:else if editandoFecha === plan.id}
+								<form
+									class="completar"
+									onsubmit={(e) => {
+										e.preventDefault();
+										void guardarFecha(plan, diaEditado, horaEditada);
+									}}
+								>
+									<div class="campos-fecha">
+										<label>
+											Día (opcional)<input type="date" bind:value={diaEditado} disabled={ocupado} />
+										</label>
+										<label>
+											Hora (opcional)<input
+												type="time"
+												bind:value={horaEditada}
+												disabled={!diaEditado || ocupado}
+											/>
+										</label>
+										{@render avisoFecha(diaEditado, plan.id)}
+									</div>
+									<div class="acciones">
+										<button disabled={ocupado}>Guardar</button>
+										{#if plan.fecha}
+											<button
+												type="button"
+												class="fantasma"
+												disabled={ocupado}
+												onclick={() => guardarFecha(plan, '', '')}
+											>
+												Quitar fecha
+											</button>
+										{/if}
+										<button
+											type="button"
+											class="fantasma"
+											disabled={ocupado}
+											onclick={() => (editandoFecha = undefined)}
+										>
+											Cancelar
+										</button>
+									</div>
+								</form>
+							{:else}
+								<div class="acciones">
+									<button disabled={ocupado} onclick={() => abrirFormulario(plan)}>
+										Lo hicimos
+									</button>
+									<button class="fantasma" disabled={ocupado} onclick={() => abrirFecha(plan)}>
+										{plan.fecha ? 'Cambiar fecha' : 'Ponerle fecha'}
 									</button>
 								</div>
-							</form>
-						{:else}
-							<div class="acciones">
-								<button disabled={ocupado} onclick={() => abrirFormulario(plan)}>Lo hicimos</button>
-								<button class="fantasma" disabled={ocupado} onclick={() => abrirFecha(plan)}>
-									{plan.fecha ? 'Cambiar fecha' : 'Ponerle fecha'}
-								</button>
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</li>
-		{:else}
-			<li class="suave">No hay planes acá todavía.</li>
-		{/each}
-	{/if}
-</ul>
+							{/if}
+						</div>
+					{/if}
+				</li>
+			{:else}
+				<li class="suave">No hay planes acá todavía.</li>
+			{/each}
+		{/if}
+	</ul>
+{/if}
 
 <style>
 	.nueva {
@@ -392,6 +422,11 @@
 		grid-column: 1 / -1;
 		color: var(--acento);
 		margin: 0;
+	}
+	.vistas {
+		display: flex;
+		gap: 0.4rem;
+		margin-bottom: 1rem;
 	}
 	.filtros {
 		display: flex;
