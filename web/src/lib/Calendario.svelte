@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { cargarMes, fechaCortaDia, marcasPorDia, semanasDelMes } from './calendario.js';
+	import { descargarIcs } from './ics.js';
 
 	let { hoy }: { hoy: string } = $props();
 	const diasSemana = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -98,6 +99,11 @@
 									<span class="suave">
 										{post.hora ? `${post.hora} · ` : ''}{post.hecho ? 'Hecho' : 'Pendiente'}
 									</span>
+									{#if !post.hecho}
+										<button class="fantasma" onclick={() => descargarIcs(post)}>
+											Agregar a mi calendario
+										</button>
+									{/if}
 								{:else}
 									{post.texto || 'Momento'}
 								{/if}

@@ -18,6 +18,7 @@
 		ErrorFotosPlan,
 		fijarFecha
 	} from '#lib/posts.js';
+	import { descargarIcs } from '#lib/ics.js';
 
 	let planes = $state<Post[]>([]);
 	const urls = new Map<string, string>();
@@ -385,6 +386,11 @@
 									<button class="fantasma" disabled={ocupado} onclick={() => abrirFecha(plan)}>
 										{plan.fecha ? 'Cambiar fecha' : 'Ponerle fecha'}
 									</button>
+									{#if plan.fecha}
+										<button class="fantasma" onclick={() => descargarIcs(plan)}>
+											Agregar a mi calendario
+										</button>
+									{/if}
 								</div>
 							{/if}
 						</div>
