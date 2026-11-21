@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { setContext } from 'svelte';
-	import { feed } from '#lib/feed.svelte.js';
+	import { feed, refrescarInicio } from '#lib/feed.svelte.js';
 	import Hoja from '#lib/Hoja.svelte';
 	import BotonMensajes from '#lib/BotonMensajes.svelte';
 	import { sesion, renovarSesion } from '#lib/pb.svelte.js';
@@ -62,6 +62,20 @@
 	function activa(href: string) {
 		return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
 	}
+
+	function tocarInicio(evento: MouseEvent) {
+		if (
+			!activa('/') ||
+			evento.button !== 0 ||
+			evento.altKey ||
+			evento.ctrlKey ||
+			evento.metaKey ||
+			evento.shiftKey
+		)
+			return;
+		evento.preventDefault();
+		refrescarInicio();
+	}
 </script>
 
 <svelte:head>
@@ -89,7 +103,7 @@
 				<Icono nombre="mas" />
 			</button>
 		</div>
-		<a href="/" class="marca">Nosotros</a>
+		<a href="/" class="marca" onclick={tocarInicio}>Nosotros</a>
 		<div class="lado derecha">
 			<a href="/juegos" class="boton-icono" class:activo={activa('/juegos')} aria-label="Juegos">
 				<Icono nombre="juegos" />
@@ -108,6 +122,7 @@
 				href={s.href}
 				class:activa={activa(s.href)}
 				aria-current={activa(s.href) ? 'page' : undefined}
+				onclick={s.href === '/' ? tocarInicio : undefined}
 			>
 				<Icono nombre={s.icono} />
 				<small>{s.label}</small>

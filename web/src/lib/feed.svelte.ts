@@ -1,6 +1,12 @@
+import { prefersReducedMotion } from 'svelte/motion';
 import { pb, type Foto, type Post } from './pb.svelte.js';
 
 export const feed = $state({ version: 0 });
+
+export function refrescarInicio(): void {
+	feed.version += 1;
+	window.scrollTo({ top: 0, behavior: prefersReducedMotion.current ? 'auto' : 'smooth' });
+}
 
 export const EXPAND_POST =
 	'autor,fotos_via_post,fotos_via_post.notas_via_foto,fotos_via_post.notas_via_foto.autor';

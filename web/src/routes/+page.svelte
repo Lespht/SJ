@@ -1,9 +1,17 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { diaDe, fechaLarga, hoyLocal } from '#lib/calendario.js';
-	import { cargarFeed, feed, planPendienteAlAzar, proximoPlan } from '#lib/feed.svelte.js';
+	import {
+		cargarFeed,
+		feed,
+		planPendienteAlAzar,
+		proximoPlan,
+		refrescarInicio
+	} from '#lib/feed.svelte.js';
+	import Icono from '#lib/Icono.svelte';
 	import { nombre, obtenerTokenArchivo, urlFoto, type Post } from '#lib/pb.svelte.js';
 	import PostTarjeta, { esqueletoPost } from '#lib/PostTarjeta.svelte';
+	import { alcanzaUmbral, desplazamiento, UMBRAL_RECARGA } from '#lib/tirar.js';
 
 	let posts = $state<Post[]>([]);
 	let proximo = $state<Post | null>();
@@ -18,7 +26,56 @@
 	let error = $state(false);
 	let centinela = $state<HTMLDivElement>();
 	let solicitud: Promise<void> | undefined;
+	let inicioTiro: { x: number; y: number } | undefined;
+	let distanciaTiro = $state(0);
+	let recargandoPorTiro = $state(false);
+	const avance = $derived(desplazamiento(distanciaTiro));
 	const abrirHoja = getContext<() => void>('abrirHoja');
+
+	onMount(() => {
+		const controlador = new AbortController();
+		const opciones = { passive: true, signal: controlador.signal };
+		window.addEventListener('touchstart', iniciarTiro, opciones);
+		window.addEventListener('touchmove', moverTiro, opciones);
+		window.addEventListener('touchend', soltarTiro, opciones);
+		window.addEventListener('touchcancel', cancelarTiro, opciones);
+		return () => controlador.abort();
+	});
+
+	function iniciarTiro(evento: TouchEvent) {
+		cancelarTiro();
+		if (recargandoPorTiro || window.scrollY !== 0 || evento.touches.length !== 1) return;
+		const toque = evento.touches[0];
+		inicioTiro = { x: toque.clientX, y: toque.clientY };
+	}
+
+	function medirTiro(toque?: Touch) {
+		if (!inicioTiro || !toque) return 0;
+		const dy = toque.clientY - inicioTiro.y;
+		return dy > Math.abs(toque.clientX - inicioTiro.x) ? dy : 0;
+	}
+
+	function moverTiro(evento: TouchEvent) {
+		if (window.scrollY > 0 || evento.touches.length !== 1) {
+			cancelarTiro();
+			return;
+		}
+		distanciaTiro = medirTiro(evento.touches[0]);
+	}
+
+	function cancelarTiro() {
+		inicioTiro = undefined;
+		distanciaTiro = 0;
+	}
+
+	function soltarTiro(evento: TouchEvent) {
+		const debeRecargar = window.scrollY <= 0 && alcanzaUmbral(medirTiro(evento.changedTouches[0]));
+		cancelarTiro();
+		if (debeRecargar) {
+			recargandoPorTiro = true;
+			refrescarInicio();
+		}
+	}
 
 	$effect(() => {
 		void reiniciar(feed.version);
@@ -95,10 +152,25 @@
 		} catch {
 			if (version === feed.version) error = true;
 		} finally {
-			if (version === feed.version) cargando = false;
+			if (version === feed.version) {
+				cargando = false;
+				recargandoPorTiro = false;
+			}
 		}
 	}
 </script>
+
+<div
+	class="indicador-recarga"
+	class:tirando={avance > 0}
+	class:recargando={recargandoPorTiro && cargando}
+	style:--avance={`${recargandoPorTiro ? UMBRAL_RECARGA : avance}px`}
+	style:--opacidad={recargandoPorTiro ? 1 : Math.min(avance / UMBRAL_RECARGA, 1)}
+	style:--umbral={`${UMBRAL_RECARGA}px`}
+	aria-hidden="true"
+>
+	<span><Icono nombre="recargar" tam={20} /></span>
+</div>
 
 <aside class="tarjeta planes">
 	<div aria-busy={proximo === undefined}>
@@ -159,6 +231,56 @@
 {/if}
 
 <style>
+	.indicador-recarga {
+		position: fixed;
+		top: var(--alto-cabecera);
+		left: 50%;
+		z-index: 9;
+		display: grid;
+		width: 36px;
+		height: 36px;
+		place-items: center;
+		border: 1px solid var(--borde);
+		border-radius: 50%;
+		background: var(--fondo-elevado);
+		color: var(--acento);
+		box-shadow: var(--sombra-polaroid);
+		pointer-events: none;
+		opacity: var(--opacidad);
+		transform: translate(-50%, var(--avance));
+		transition:
+			transform 160ms ease,
+			opacity 160ms ease;
+	}
+	.indicador-recarga.tirando {
+		transition: none;
+	}
+	.indicador-recarga span {
+		display: grid;
+	}
+	.indicador-recarga.recargando span {
+		animation: giro-recarga 700ms linear infinite;
+	}
+	@keyframes giro-recarga {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.indicador-recarga {
+			opacity: 0;
+			transform: translate(-50%, var(--umbral));
+			transition: none;
+		}
+		.indicador-recarga.tirando,
+		.indicador-recarga.recargando {
+			opacity: 1;
+		}
+		.indicador-recarga.recargando span {
+			animation: none;
+		}
+	}
+
 	.subir {
 		padding: 0;
 		background: none;
