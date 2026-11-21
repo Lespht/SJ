@@ -1,11 +1,49 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { pb, sesion, nombre, type Mensaje, type Usuario } from '#lib/pb.svelte.js';
+	import Avatar from '#lib/Avatar.svelte';
+	import Icono from '#lib/Icono.svelte';
+	import { cambiarTema, cargarTema, ID_CHAT, TEMAS, temaValido, type Tema } from '#lib/chat.js';
 
 	let mensajes = $state<Mensaje[]>([]);
 	let texto = $state('');
 	let enviando = $state(false);
 	let lista: HTMLElement | undefined = $state();
+
+	// Tema compartido: si uno lo cambia, el otro lo ve al instante.
+	let tema = $state<Tema>('polaroid');
+	let eligiendo = $state(false);
+	const colorTema = $derived(TEMAS.find((t) => t.id === tema)?.color ?? null);
+
+	$effect(() => {
+		let cancelado = false;
+		let desuscribir: (() => Promise<void>) | undefined;
+		cargarTema().then((t) => {
+			if (!cancelado) tema = t;
+		});
+		pb.collection('chat')
+			.subscribe<{ tema: string }>(ID_CHAT, (e) => (tema = temaValido(e.record.tema)))
+			.then((quitar) => {
+				if (cancelado) quitar();
+				else desuscribir = quitar;
+			})
+			.catch(() => {});
+		return () => {
+			cancelado = true;
+			desuscribir?.();
+		};
+	});
+
+	async function elegirTema(t: Tema) {
+		const anterior = tema;
+		tema = t; // se ve al instante; si falla, vuelve
+		eligiendo = false;
+		try {
+			await cambiarTema(t);
+		} catch {
+			tema = anterior;
+		}
+	}
 
 	// Cache de usuarios para mostrar nombres de mensajes que llegan en tiempo real.
 	const usuarios = new Map<string, Usuario>();
@@ -55,7 +93,9 @@
 		if (!t || !sesion.usuario) return;
 		enviando = true;
 		try {
-			const m = await pb.collection('mensajes').create<Mensaje>({ texto: t, autor: sesion.usuario.id });
+			const m = await pb
+				.collection('mensajes')
+				.create<Mensaje>({ texto: t, autor: sesion.usuario.id });
 			texto = '';
 			if (!mensajes.some((x) => x.id === m.id)) {
 				mensajes.push(m);
@@ -75,7 +115,11 @@
 	}
 
 	function autorDe(m: Mensaje) {
-		return m.expand?.autor ?? usuarios.get(m.autor) ?? (m.autor === sesion.usuario?.id ? sesion.usuario : null);
+		return (
+			m.expand?.autor ??
+			usuarios.get(m.autor) ??
+			(m.autor === sesion.usuario?.id ? sesion.usuario : null)
+		);
 	}
 
 	function hora(iso: string) {
@@ -88,39 +132,118 @@
 	}
 </script>
 
-<h1>💬 Mensajes</h1>
+<div class="titulo">
+	<h1>Mensajes</h1>
+	<button
+		class="fantasma tema"
+		onclick={() => (eligiendo = !eligiendo)}
+		aria-expanded={eligiendo}
+		aria-controls="temas"
+	>
+		<Icono nombre="paleta" tam={20} />
+		Tema
+	</button>
+	{#if eligiendo}
+		<div class="temas tarjeta" id="temas" role="radiogroup" aria-label="Tema del chat">
+			{#each TEMAS as t (t.id)}
+				<button
+					class="muestra"
+					role="radio"
+					aria-checked={tema === t.id}
+					aria-label={t.nombre}
+					title={t.nombre}
+					style:--muestra={t.color ?? 'var(--acento)'}
+					onclick={() => elegirTema(t.id)}
+				></button>
+			{/each}
+		</div>
+	{/if}
+</div>
 
-<div class="chat tarjeta">
+<div
+	class="chat tarjeta"
+	style:--color-tema={colorTema ?? 'var(--acento)'}
+	style:--texto-tema={colorTema ? '#fff' : 'var(--sobre-acento)'}
+>
 	<div class="lista" bind:this={lista}>
-		{#each mensajes as m (m.id)}
+		{#each mensajes as m, i (m.id)}
 			{@const mio = m.autor === sesion.usuario?.id}
-			<div class="burbuja" class:mio>
-				{#if !mio}<small class="quien">{nombre(autorDe(m))}</small>{/if}
-				<p>{m.texto}</p>
-				<small class="hora">{hora(m.created)}</small>
+			{@const ultimoDeTanda = mensajes[i + 1]?.autor !== m.autor}
+			{@const primeroDeTanda = mensajes[i - 1]?.autor !== m.autor}
+			<div class="fila" class:mio>
+				{#if !mio}
+					<span class="lugar-avatar">
+						{#if ultimoDeTanda}<Avatar usuario={autorDe(m)} tam={28} />{/if}
+					</span>
+				{/if}
+				<div class="burbuja" class:mio>
+					{#if !mio && primeroDeTanda}<small class="quien">{nombre(autorDe(m))}</small>{/if}
+					<p>{m.texto}</p>
+					<small class="hora">{hora(m.created)}</small>
+				</div>
 			</div>
 		{:else}
-			<p class="suave vacio">Escribí el primer mensaje 💌</p>
+			<p class="suave vacio">Todavía no hay mensajes.</p>
 		{/each}
 	</div>
 
 	<form onsubmit={enviar}>
 		<textarea
-			placeholder="Escribí algo lindo…"
+			placeholder="Escribí un mensaje"
 			bind:value={texto}
 			onkeydown={teclas}
 			rows="1"
-			maxlength="4000"
-		></textarea>
+			maxlength="4000"></textarea>
 		<button disabled={enviando || !texto.trim()}>Enviar</button>
 	</form>
 </div>
 
 <style>
+	.titulo {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.titulo h1 {
+		margin: 0.25rem 0 1rem;
+	}
+	.tema {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-bottom: 0.75rem;
+	}
+	/* Flota sobre el chat para no cambiar su alto. */
+	.temas {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		z-index: 5;
+		display: flex;
+		gap: 0.6rem;
+		padding: 0.75rem;
+		margin-top: -0.5rem;
+		box-shadow: var(--sombra-polaroid);
+	}
+	.muestra {
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		border-radius: 50%;
+		background: var(--muestra);
+		border: 2px solid var(--fondo-elevado);
+		outline: 2px solid transparent;
+	}
+	.muestra[aria-checked='true'] {
+		outline-color: var(--texto);
+	}
 	.chat {
 		display: flex;
 		flex-direction: column;
-		height: calc(100dvh - 12rem);
+		/* Todo el alto disponible entre la cabecera y la barra de abajo,
+		   menos el padding de main (2rem) y el título (~3rem). */
+		height: calc(100dvh - var(--alto-cabecera) - var(--alto-nav) - 5rem);
 		min-height: 320px;
 		padding: 0;
 		overflow: hidden;
@@ -129,6 +252,8 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: 1rem;
+		background: color-mix(in oklab, var(--color-tema) 9%, var(--fondo-elevado));
+		transition: background 0.3s;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -136,19 +261,32 @@
 	.vacio {
 		margin: auto;
 	}
-	.burbuja {
-		max-width: 75%;
+	/* El avatar va al pie de cada tanda de mensajes del otro, como en Instagram. */
+	.fila {
+		display: flex;
+		align-items: flex-end;
+		gap: 0.4rem;
+		max-width: 85%;
 		align-self: flex-start;
+	}
+	.fila.mio {
+		align-self: flex-end;
+	}
+	.lugar-avatar {
+		width: 28px;
+		flex: none;
+	}
+	.burbuja {
+		min-width: 0;
 		background: var(--fondo);
 		border: 1px solid var(--borde);
 		border-radius: 16px 16px 16px 4px;
 		padding: 0.5rem 0.75rem;
 	}
 	.burbuja.mio {
-		align-self: flex-end;
-		background: var(--acento);
-		border-color: var(--acento);
-		color: white;
+		background: var(--color-tema);
+		border-color: var(--color-tema);
+		color: var(--texto-tema);
 		border-radius: 16px 16px 4px 16px;
 	}
 	.burbuja p {
@@ -165,6 +303,10 @@
 		font-size: 0.7rem;
 		opacity: 0.7;
 		text-align: right;
+	}
+	form button {
+		background: var(--color-tema);
+		color: var(--texto-tema);
 	}
 	form {
 		display: flex;

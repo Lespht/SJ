@@ -22,8 +22,8 @@
 </script>
 
 <div class="centro">
-	<form class="tarjeta" onsubmit={entrar}>
-		<h1>💞 Nosotros</h1>
+	<form class="polaroid" onsubmit={entrar}>
+		<h1>Nosotros</h1>
 		<label>
 			Email
 			<input type="email" bind:value={email} autocomplete="username" required />
@@ -49,9 +49,14 @@
 		max-width: 360px;
 		display: grid;
 		gap: 0.9rem;
+		padding: 1.5rem 1.25rem 2rem;
+		transform: rotate(-0.6deg);
 	}
 	h1 {
 		text-align: center;
+		font-size: 2rem;
+		font-weight: 700;
+		letter-spacing: -0.03em;
 	}
 	label {
 		display: grid;

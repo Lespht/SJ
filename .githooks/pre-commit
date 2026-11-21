@@ -1,0 +1,7 @@
+#!/bin/sh
+# Formatea con prettier los archivos de web/ que van en el commit y los vuelve a agregar.
+files=$(git diff --cached --name-only --diff-filter=ACMR -- 'web/*' | grep -E '\.(ts|js|svelte|css|json|html|md)$' | grep -v 'pnpm-lock.yaml')
+[ -z "$files" ] && exit 0
+rel=$(echo "$files" | sed 's|^web/||')
+(cd web && echo "$rel" | xargs pnpm exec prettier --write --ignore-unknown --log-level warn) || exit 1
+echo "$files" | xargs git add

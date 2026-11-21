@@ -1,21 +1,52 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { pb, sesion, nombre } from '#lib/pb.svelte.js';
+	import { setContext } from 'svelte';
+	import { feed } from '#lib/feed.svelte.js';
+	import Hoja from '#lib/Hoja.svelte';
+	import BotonMensajes from '#lib/BotonMensajes.svelte';
+	import { sesion, renovarSesion } from '#lib/pb.svelte.js';
+	import { temaDe } from '#lib/perfil.svelte.js';
+	import Icono, { type NombreIcono } from '#lib/Icono.svelte';
 	import type { LayoutProps } from './$types';
+	import '@fontsource-variable/onest';
+	import '@fontsource-variable/bricolage-grotesque';
 	import './app.css';
 
 	let { children }: LayoutProps = $props();
+	let compartiendo = $state(false);
 
-	const secciones = [
-		{ href: '/', label: 'Inicio', icono: '🏠' },
-		{ href: '/fotos', label: 'Fotos', icono: '📷' },
-		{ href: '/ideas', label: 'Ideas', icono: '💡' },
-		{ href: '/mensajes', label: 'Mensajes', icono: '💬' },
-		{ href: '/juegos', label: 'Juegos', icono: '🎲' }
+	function abrirHoja() {
+		compartiendo = true;
+	}
+
+	setContext('abrirHoja', abrirHoja);
+
+	function alCompartir() {
+		compartiendo = false;
+		feed.version += 1;
+		if (page.url.pathname !== '/') void goto('/');
+	}
+
+	const secciones: { href: string; label: string; icono: NombreIcono }[] = [
+		{ href: '/', label: 'Inicio', icono: 'inicio' },
+		{ href: '/ideas', label: 'Planes', icono: 'planes' },
+		{ href: '/perfil', label: 'Perfil', icono: 'perfil' }
 	];
 
 	const enLogin = $derived(page.url.pathname === '/login');
+	const tema = $derived(temaDe(sesion.usuario));
+
+	$effect(() => {
+		const raiz = document.documentElement;
+		if (sesion.usuario) {
+			raiz.dataset.modo = tema.modo;
+			raiz.dataset.acento = tema.acento;
+		} else {
+			delete raiz.dataset.modo;
+			delete raiz.dataset.acento;
+		}
+	});
 
 	// Guardia simple: sin sesión → login. Con sesión en /login → inicio.
 	$effect(() => {
@@ -23,129 +54,150 @@
 		if (sesion.usuario && enLogin) goto('/', { replaceState: true });
 	});
 
-	// Renueva el token al abrir la app; si ya no es válido, cierra sesión.
+	// Renueva el token al abrir la app (sin red, la sesión se mantiene).
 	$effect(() => {
-		if (pb.authStore.isValid) {
-			pb.collection('users')
-				.authRefresh()
-				.catch(() => pb.authStore.clear());
-		}
+		renovarSesion();
 	});
 
 	function activa(href: string) {
 		return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
 	}
-
-	function salir() {
-		pb.authStore.clear();
-	}
 </script>
 
 <svelte:head>
 	<title>Nosotros</title>
+	{#if tema.modo === 'sistema'}
+		<meta name="theme-color" content="#eef0ec" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#121513" media="(prefers-color-scheme: dark)" />
+	{:else}
+		<meta name="theme-color" content={tema.modo === 'oscuro' ? '#121513' : '#eef0ec'} />
+	{/if}
 </svelte:head>
 
 {#if enLogin}
 	{@render children()}
 {:else if sesion.usuario}
-	<header class="barra">
-		<a href="/" class="marca">💞 Nosotros</a>
-		<nav class="nav-escritorio">
-			{#each secciones as s (s.href)}
-				<a href={s.href} class:activa={activa(s.href)}>{s.label}</a>
-			{/each}
-		</nav>
-		<button class="fantasma" onclick={salir} title="Cerrar sesión">
-			{nombre(sesion.usuario)} · salir
-		</button>
+	<header class="cabecera">
+		<div class="lado">
+			<button
+				type="button"
+				class="boton-icono"
+				aria-label="Compartir"
+				aria-haspopup="dialog"
+				onclick={abrirHoja}
+			>
+				<Icono nombre="mas" />
+			</button>
+		</div>
+		<a href="/" class="marca">Nosotros</a>
+		<div class="lado derecha">
+			<a href="/juegos" class="boton-icono" class:activo={activa('/juegos')} aria-label="Juegos">
+				<Icono nombre="juegos" />
+			</a>
+			<BotonMensajes activo={activa('/mensajes')} />
+		</div>
 	</header>
 
 	<main>
 		{@render children()}
 	</main>
 
-	<nav class="nav-movil">
+	<nav class="barra">
 		{#each secciones as s (s.href)}
-			<a href={s.href} class:activa={activa(s.href)}>
-				<span>{s.icono}</span>
+			<a
+				href={s.href}
+				class:activa={activa(s.href)}
+				aria-current={activa(s.href) ? 'page' : undefined}
+			>
+				<Icono nombre={s.icono} />
 				<small>{s.label}</small>
 			</a>
 		{/each}
 	</nav>
+	{#if compartiendo}
+		<Hoja autor={sesion.usuario.id} cerrar={() => (compartiendo = false)} compartir={alCompartir} />
+	{/if}
 {/if}
 
 <style>
-	.barra {
+	.cabecera {
 		position: sticky;
 		top: 0;
 		z-index: 10;
-		display: flex;
+		height: var(--alto-cabecera);
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
 		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
-		background: var(--fondo-elevado);
+		padding: 0 0.5rem;
+		background: var(--fondo);
 		border-bottom: 1px solid var(--borde);
 	}
-	.marca {
-		font-weight: 700;
-		text-decoration: none;
-		color: var(--texto);
-	}
-	.nav-escritorio {
+	.lado {
 		display: flex;
-		gap: 0.25rem;
-		margin-right: auto;
 	}
-	.nav-escritorio a {
-		padding: 0.4rem 0.75rem;
-		border-radius: 999px;
+	.derecha {
+		justify-content: flex-end;
+	}
+	.marca {
+		font-family: var(--fuente-titulo);
+		font-size: 1.4rem;
+		font-weight: 700;
+		letter-spacing: -0.03em;
+		color: var(--texto);
 		text-decoration: none;
-		color: var(--texto-suave);
 	}
-	.nav-escritorio a.activa {
-		background: var(--acento-suave);
+	.boton-icono {
+		width: 44px;
+		height: 44px;
+		display: grid;
+		place-items: center;
+		color: var(--texto);
+		border-radius: 50%;
+	}
+	button.boton-icono {
+		background: transparent;
+		padding: 0;
+	}
+	.boton-icono.activo {
 		color: var(--acento);
 	}
 	main {
-		max-width: 960px;
+		max-width: var(--ancho);
 		margin: 0 auto;
-		padding: 1rem 1rem 6rem;
+		padding: 1rem 1rem calc(var(--alto-nav) + 1rem);
+		/* Una polaroid que sale volando del mazo no debe ensanchar la página. */
+		overflow-x: clip;
 	}
-	.nav-movil {
-		display: none;
+	.barra {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 10;
+		height: var(--alto-nav);
+		display: flex;
+		justify-content: center;
+		gap: clamp(1.5rem, 12vw, 5rem);
+		padding: 0.4rem 0 env(safe-area-inset-bottom, 0px);
+		background: var(--fondo);
+		border-top: 1px solid var(--borde);
 	}
-
-	@media (max-width: 700px) {
-		.nav-escritorio {
-			display: none;
-		}
-		.barra button {
-			margin-left: auto;
-		}
-		.nav-movil {
-			position: fixed;
-			bottom: 0;
-			left: 0;
-			right: 0;
-			display: flex;
-			justify-content: space-around;
-			padding: 0.4rem 0 calc(0.4rem + env(safe-area-inset-bottom, 0px));
-			background: var(--fondo-elevado);
-			border-top: 1px solid var(--borde);
-		}
-		.nav-movil a {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			text-decoration: none;
-			color: var(--texto-suave);
-			font-size: 1.3rem;
-		}
-		.nav-movil small {
-			font-size: 0.7rem;
-		}
-		.nav-movil a.activa {
-			color: var(--acento);
-		}
+	.barra a {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		min-width: 56px;
+		text-decoration: none;
+		color: var(--texto-suave);
+	}
+	.barra small {
+		font-size: 0.7rem;
+	}
+	.barra a.activa {
+		color: var(--texto);
+	}
+	.barra a.activa :global(svg) {
+		stroke-width: 2.2;
 	}
 </style>

@@ -3,14 +3,45 @@ import PocketBase, { type RecordModel } from 'pocketbase';
 // Mismo origen: en producción la sirve PocketBase y en dev el proxy de Vite.
 export const pb = new PocketBase('/');
 
-export type Usuario = RecordModel & { name?: string; email: string; avatar?: string };
+export type Modo = 'sistema' | 'claro' | 'oscuro';
+export type Acento = 'verde' | 'azul' | 'vino' | 'ambar' | 'grafito';
+
+export type Usuario = RecordModel & {
+	name?: string;
+	email: string;
+	avatar?: string;
+	modo?: Modo | '';
+	acento?: Acento | '';
+	/** Hasta cuándo vio el chat; vacío si nunca lo abrió desde NOS-18. */
+	mensajes_vistos?: string;
+};
 
 export type Foto = RecordModel & {
 	imagen: string;
 	descripcion: string;
 	fecha: string;
 	autor: string;
-	expand?: { autor?: Usuario; notas_via_foto?: Nota[] };
+	/** Post al que pertenece (momento o plan). Vacío solo en fotos subidas antes de NOS-10. */
+	post: string;
+	expand?: { autor?: Usuario; notas_via_foto?: Nota[]; post?: Post };
+};
+
+/**
+ * Todo lo que se comparte. Un momento es "mirá esto" (fotos + texto); un plan es una idea
+ * que al hacerse se completa con fotos. Borrar un post con fotos = archivarlo.
+ */
+export type Post = RecordModel & {
+	tipo: 'momento' | 'plan';
+	titulo: string;
+	texto: string;
+	categoria: '' | 'cita' | 'viaje' | 'regalo' | 'comida' | 'otro';
+	hecho: boolean;
+	/** Cuándo pasó. Vacío en un plan pendiente. */
+	fecha: string;
+	archivado: boolean;
+	archivado_en: string;
+	autor: string;
+	expand?: { autor?: Usuario; fotos_via_post?: Foto[] };
 };
 
 /** Nota de una persona sobre una foto (una por persona por foto). */
@@ -52,6 +83,20 @@ pb.authStore.onChange(() => {
 	sesion.usuario = pb.authStore.isValid ? (pb.authStore.record as Usuario) : null;
 });
 
+/**
+ * Renueva el token al abrir la app. Solo cierra la sesión si el servidor dice que el
+ * token ya no sirve (401/403/404). Sin red o con el servidor caído, la sesión se mantiene.
+ */
+export async function renovarSesion() {
+	if (!pb.authStore.isValid) return;
+	try {
+		await pb.collection('users').authRefresh();
+	} catch (e) {
+		const status = (e as { status?: number }).status ?? 0;
+		if ([401, 403, 404].includes(status)) pb.authStore.clear();
+	}
+}
+
 export function nombre(u?: Usuario | null) {
 	if (!u) return '?';
 	return u.name || u.email.split('@')[0];
@@ -72,6 +117,18 @@ export async function obtenerTokenArchivo() {
 
 export function urlFoto(foto: Foto, token: string, thumb?: string) {
 	return pb.files.getURL(foto, foto.imagen, { token, ...(thumb ? { thumb } : {}) });
+}
+
+/** "hoy", "ayer", "hace 3 días"; pasada una semana, la fecha corta. Cuenta días de calendario. */
+export function fechaRelativa(iso: string, ahora = new Date()) {
+	if (!iso) return '';
+	const fecha = new Date(iso.replace(' ', 'T'));
+	const dia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	const dias = Math.round((dia(ahora) - dia(fecha)) / 86_400_000);
+	if (dias <= 0) return 'hoy';
+	if (dias === 1) return 'ayer';
+	if (dias < 7) return `hace ${dias} días`;
+	return fechaCorta(iso);
 }
 
 export function fechaCorta(iso: string) {

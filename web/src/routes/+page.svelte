@@ -1,107 +1,266 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
+	import Avatar from '#lib/Avatar.svelte';
+	import { cargarFeed, feed, fotosDe, planPendienteAlAzar } from '#lib/feed.svelte.js';
+	import Mazo from '#lib/Mazo.svelte';
 	import {
-		pb,
-		sesion,
+		fechaRelativa,
 		nombre,
 		obtenerTokenArchivo,
+		pb,
 		urlFoto,
-		type Foto,
-		type Idea,
-		type Mensaje
+		type Post,
+		type Usuario
 	} from '#lib/pb.svelte.js';
 
-	let fotos = $state<Foto[]>([]);
-	let token = $state('');
-	let ideasPendientes = $state(0);
-	let ideaAlAzar = $state<Idea | null>(null);
-	let ultimoMensaje = $state<Mensaje | null>(null);
+	let posts = $state<Post[]>([]);
+	let pendiente = $state<{ titulo: string; autor: string }>();
+	// URL fija por foto: el token de archivo cambia cada 90 s, y si las URLs dependieran
+	// del token actual, cargar otra página haría bajar de nuevo todas las fotos ya vistas.
+	const urls = new Map<string, string>();
+	let pagina = 1;
+	let hayMas = $state(false);
+	let cargando = $state(true);
+	let error = $state(false);
+	let centinela = $state<HTMLDivElement>();
+	let solicitud: Promise<void> | undefined;
+	const abrirHoja = getContext<() => void>('abrirHoja');
 
 	$effect(() => {
-		cargar();
+		void reiniciar(feed.version);
 	});
 
-	async function cargar() {
-		const [f, ideas, msgs, tk] = await Promise.all([
-			pb.collection('fotos').getList<Foto>(1, 6, { sort: '-created' }),
-			pb.collection('ideas').getFullList<Idea>({ filter: 'hecha = false' }),
-			pb.collection('mensajes').getList<Mensaje>(1, 1, { sort: '-created', expand: 'autor' }),
-			obtenerTokenArchivo()
-		]);
-		fotos = f.items;
-		token = tk;
-		ideasPendientes = ideas.length;
-		ideaAlAzar = ideas.length ? ideas[Math.floor(Math.random() * ideas.length)] : null;
-		ultimoMensaje = msgs.items[0] ?? null;
+	$effect(() => {
+		if (!centinela || cargando || error || !hayMas) return;
+
+		const observador = new IntersectionObserver(
+			(entradas) => {
+				if (entradas.some((entrada) => entrada.isIntersecting) && !cargando && !error && hayMas) {
+					cargarPagina();
+				}
+			},
+			{ rootMargin: '600px 0px' }
+		);
+		observador.observe(centinela);
+		return () => observador.disconnect();
+	});
+
+	async function reiniciar(version: number) {
+		pagina = 1;
+		posts = [];
+		pendiente = undefined;
+		hayMas = false;
+		cargando = true;
+		error = false;
+		await solicitud;
+		if (version === feed.version) solicitud = cargarInicio(version);
+	}
+
+	async function cargarInicio(version: number) {
+		// PocketBase cancela las consultas simultáneas al mismo endpoint de posts.
+		const plan = await planPendienteAlAzar().catch(() => null);
+		if (version !== feed.version) return;
+		if (plan) void cargarAutor(plan, version);
+		await pedirPagina(version);
+	}
+
+	async function cargarAutor(plan: Post, version: number) {
+		const autor = await pb
+			.collection('users')
+			.getOne<Usuario>(plan.autor)
+			.catch(() => undefined);
+		if (version === feed.version) pendiente = { titulo: plan.titulo, autor: nombre(autor) };
+	}
+
+	function cargarPagina() {
+		if (!cargando) solicitud = pedirPagina(feed.version);
+	}
+
+	async function pedirPagina(version: number) {
+		cargando = true;
+		error = false;
+		try {
+			const token = await obtenerTokenArchivo();
+			if (version !== feed.version) return;
+			const { items, hayMas: quedanPosts } = await cargarFeed(pagina);
+			if (version !== feed.version) return;
+			const ids = new Set(posts.map((post) => post.id));
+			const nuevos = items.filter((post) => !ids.has(post.id));
+			for (const post of nuevos) {
+				for (const foto of post.expand?.fotos_via_post ?? []) {
+					if (!urls.has(foto.id)) urls.set(foto.id, urlFoto(foto, token, '800x0'));
+				}
+			}
+			posts = [...posts, ...nuevos];
+			hayMas = quedanPosts;
+			pagina += 1;
+		} catch {
+			if (version === feed.version) error = true;
+		} finally {
+			if (version === feed.version) cargando = false;
+		}
 	}
 </script>
 
-<h1>Hola, {nombre(sesion.usuario)} 💕</h1>
+{#if pendiente}
+	<aside class="pendiente">
+		<h2 class="titulo">{pendiente.titulo}</h2>
+		<p class="suave">Idea de {pendiente.autor}</p>
+		<a href="/ideas">Ver planes</a>
+	</aside>
+{/if}
 
-<div class="grilla">
-	<a class="tarjeta" href="/mensajes">
-		<h2>💬 Último mensaje</h2>
-		{#if ultimoMensaje}
-			<p><strong>{nombre(ultimoMensaje.expand?.autor)}:</strong> {ultimoMensaje.texto}</p>
-		{:else}
-			<p class="suave">Todavía no hay mensajes. ¡Escribí el primero!</p>
-		{/if}
-	</a>
+<div class="feed" aria-busy={cargando}>
+	{#each posts as post (post.id)}
+		{@const fotos = fotosDe(post)}
+		{@const notas = fotos
+			.flatMap((foto) => foto.expand?.notas_via_foto ?? [])
+			.sort((a, b) => a.created.localeCompare(b.created))}
+		<article class="post">
+			<header class="autor">
+				<Avatar usuario={post.expand?.autor} />
+				<span class="quien">{nombre(post.expand?.autor)}</span>
+				<span class="suave">{fechaRelativa(post.fecha || post.created)}</span>
+			</header>
+			{#if fotos.length}
+				<Mazo
+					fotos={fotos.map((foto) => ({
+						id: foto.id,
+						src: urls.get(foto.id) ?? '',
+						alt: foto.descripcion
+					}))}
+				/>
+			{/if}
+			<div class="pie" class:polaroid={!fotos.length}>
+				{#if post.tipo === 'plan'}<h2 class="titulo">{post.titulo}</h2>{/if}
+				{#if post.texto}<p class="texto">{post.texto}</p>{/if}
+				{#each notas as nota (nota.id)}
+					<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
+				{/each}
+			</div>
+		</article>
+	{/each}
 
-	<a class="tarjeta" href="/ideas">
-		<h2>💡 Ideas pendientes: {ideasPendientes}</h2>
-		{#if ideaAlAzar}
-			<p>¿Qué tal… <strong>{ideaAlAzar.titulo}</strong>?</p>
-		{:else}
-			<p class="suave">Agreguen planes, citas o regalos.</p>
-		{/if}
-	</a>
+	{#if cargando}
+		{#each Array(posts.length ? 1 : 3) as _}
+			<div class="polaroid esqueleto" aria-hidden="true">
+				<div class="imagen brillo"></div>
+				<div class="pie">
+					<div class="linea brillo"></div>
+					<div class="linea brillo"></div>
+				</div>
+			</div>
+		{/each}
+	{:else if error}
+		<div>
+			<p class="error" role="alert">No se pudieron cargar las fotos.</p>
+			<button type="button" onclick={cargarPagina}>Reintentar</button>
+		</div>
+	{:else if !posts.length}
+		<p class="suave">
+			Todavía no hay fotos. <button class="subir" onclick={abrirHoja}>Subir la primera</button>
+		</p>
+	{/if}
 </div>
 
-<section>
-	<h2><a href="/fotos">📷 Fotos recientes</a></h2>
-	{#if fotos.length}
-		<div class="fotos">
-			{#each fotos as f (f.id)}
-				<a href="/fotos"><img src={urlFoto(f, token, '400x400')} alt={f.descripcion} /></a>
-			{/each}
-		</div>
-	{:else}
-		<p class="suave">Subí la primera foto en la sección Fotos.</p>
-	{/if}
-</section>
+{#if hayMas}
+	<div class="centinela" bind:this={centinela} aria-hidden="true"></div>
+{/if}
 
 <style>
-	h2 {
-		font-size: 1.05rem;
-		margin: 0 0 0.5rem;
+	.subir {
+		padding: 0;
+		background: none;
+		color: var(--acento);
+		font-weight: inherit;
+		text-decoration: underline;
 	}
-	.grilla {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-		gap: 1rem;
+	.pendiente {
 		margin-bottom: 1.5rem;
+		padding: 1rem;
+		overflow-wrap: anywhere;
 	}
-	.grilla a {
-		text-decoration: none;
-		color: inherit;
+	.pendiente p {
+		margin: 0.25rem 0 0.5rem;
 	}
-	.grilla p {
+	.feed {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 3rem;
+	}
+	/* Giro alterno de cada post, como fotos sueltas sobre la mesa. */
+	.post:nth-child(odd) :global(.mazo),
+	.esqueleto:nth-child(odd) {
+		transform: rotate(-0.8deg);
+	}
+	.post:nth-child(even) :global(.mazo),
+	.esqueleto:nth-child(even) {
+		transform: rotate(0.7deg);
+	}
+	.autor {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0 0.25rem;
+		/* Las polaroids de atrás del mazo están giradas: sin este aire tapan la inicial. */
+		margin-bottom: 0.75rem;
+		font-size: 0.9rem;
+	}
+	.quien {
+		font-weight: 600;
+	}
+	.post {
+		display: grid;
+		gap: 0.6rem;
+	}
+	.pie.polaroid {
+		padding: 1rem;
+	}
+	.imagen {
+		display: block;
+		width: 100%;
+		aspect-ratio: 4 / 5;
+	}
+	.pie {
+		display: grid;
+		gap: 0.25rem;
+		padding: 0 0.75rem;
+		overflow-wrap: anywhere;
+	}
+	.pie p {
 		margin: 0;
 	}
-	section h2 a {
-		color: inherit;
-		text-decoration: none;
+	.titulo {
+		margin: 0;
+		font-family: var(--fuente-titulo);
+		font-size: 1.125rem;
 	}
-	.fotos {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 0.5rem;
+	.texto {
+		white-space: pre-wrap;
 	}
-	.fotos img {
-		width: 100%;
-		aspect-ratio: 1;
-		object-fit: cover;
-		border-radius: 10px;
-		display: block;
+	.brillo {
+		background: linear-gradient(100deg, var(--fondo) 25%, var(--borde) 50%, var(--fondo) 75%);
+		background-size: 200% 100%;
+		animation: brillo 1.8s ease-in-out infinite;
+	}
+	.linea {
+		width: 65%;
+		height: 1.6875rem;
+		border-radius: 4px;
+	}
+	.linea:last-child {
+		width: 40%;
+		height: 1.5rem;
+	}
+	.centinela {
+		height: 1px;
+	}
+	@keyframes brillo {
+		from {
+			background-position: 150% 0;
+		}
+		to {
+			background-position: -50% 0;
+		}
 	}
 </style>
