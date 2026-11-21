@@ -4,6 +4,7 @@
 	import { setContext } from 'svelte';
 	import { feed } from '#lib/feed.svelte.js';
 	import Hoja from '#lib/Hoja.svelte';
+	import BotonMensajes from '#lib/BotonMensajes.svelte';
 	import { sesion, renovarSesion } from '#lib/pb.svelte.js';
 	import Icono, { type NombreIcono } from '#lib/Icono.svelte';
 	import type { LayoutProps } from './$types';
@@ -76,14 +77,7 @@
 			<a href="/juegos" class="boton-icono" class:activo={activa('/juegos')} aria-label="Juegos">
 				<Icono nombre="juegos" />
 			</a>
-			<a
-				href="/mensajes"
-				class="boton-icono"
-				class:activo={activa('/mensajes')}
-				aria-label="Mensajes"
-			>
-				<Icono nombre="mensajes" />
-			</a>
+			<BotonMensajes activo={activa('/mensajes')} />
 		</div>
 	</header>
 

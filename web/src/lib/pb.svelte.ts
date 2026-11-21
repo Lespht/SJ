@@ -3,7 +3,13 @@ import PocketBase, { type RecordModel } from 'pocketbase';
 // Mismo origen: en producción la sirve PocketBase y en dev el proxy de Vite.
 export const pb = new PocketBase('/');
 
-export type Usuario = RecordModel & { name?: string; email: string; avatar?: string };
+export type Usuario = RecordModel & {
+	name?: string;
+	email: string;
+	avatar?: string;
+	/** Hasta cuándo vio el chat; vacío si nunca lo abrió desde NOS-18. */
+	mensajes_vistos?: string;
+};
 
 export type Foto = RecordModel & {
 	imagen: string;
