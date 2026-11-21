@@ -94,6 +94,18 @@ describe('obtenerTokenArchivo', () => {
 		expect(await obtenerTokenArchivo()).toBe('t2');
 		expect(getToken).toHaveBeenCalledTimes(2);
 	});
+
+	it('comparte la solicitud de token entre la lista y el calendario', async () => {
+		vi.useFakeTimers();
+		vi.advanceTimersByTime(5 * 60_000);
+		const getToken = vi.spyOn(pb.files, 'getToken').mockResolvedValue('de-prueba');
+
+		const lista = obtenerTokenArchivo();
+		const calendario = obtenerTokenArchivo();
+
+		await expect(Promise.all([lista, calendario])).resolves.toEqual(['de-prueba', 'de-prueba']);
+		expect(getToken).toHaveBeenCalledOnce();
+	});
 });
 
 describe('red bloqueada en tests', () => {

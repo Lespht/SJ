@@ -65,6 +65,7 @@ export function cargarMes(anio: number, mes: number): Promise<Post[]> {
 			hasta: `${hasta} 00:00:00.000Z`
 		}),
 		sort: 'fecha',
+		expand: 'fotos_via_post',
 		requestKey: 'mes'
 	});
 }
@@ -79,6 +80,17 @@ export function marcasPorDia(posts: Post[]): Map<string, { pendiente: Post[]; he
 		marcas.set(dia, marca);
 	}
 	return marcas;
+}
+
+export function separarDia(marca: { pendiente: Post[]; hecho: Post[] }): {
+	planes: Post[];
+	momentos: Post[];
+} {
+	const posts = [...marca.pendiente, ...marca.hecho];
+	return {
+		planes: posts.filter((post) => post.tipo === 'plan'),
+		momentos: posts.filter((post) => post.tipo === 'momento')
+	};
 }
 
 export function fechaCortaDia(iso: string): string {

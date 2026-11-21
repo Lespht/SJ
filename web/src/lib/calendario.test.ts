@@ -9,6 +9,7 @@ import {
 	hoyLocal,
 	marcasPorDia,
 	planesDelDia,
+	separarDia,
 	semanasDelMes
 } from './calendario';
 import { fechaCorta, pb, type Post } from './pb.svelte';
@@ -100,8 +101,30 @@ it('consulta todos los posts fechados del mes hasta el comienzo del año siguien
 			/^archivado = false && fecha >= ["']2026-12-01 00:00:00\.000Z["'] && fecha < ["']2027-01-01 00:00:00\.000Z["']$/
 		),
 		sort: 'fecha',
+		expand: 'fotos_via_post',
 		requestKey: 'mes'
 	});
+});
+
+it('separa los momentos y deja los planes pendientes antes de los hechos', () => {
+	const p1 = { id: 'p1', tipo: 'plan', hecho: false } as Post;
+	const p2 = { id: 'p2', tipo: 'plan', hecho: true } as Post;
+	const m1 = { id: 'm1', tipo: 'momento' } as Post;
+	const m2 = { id: 'm2', tipo: 'momento' } as Post;
+
+	expect(separarDia({ pendiente: [p1], hecho: [p2, m1, m2] })).toEqual({
+		planes: [p1, p2],
+		momentos: [m1, m2]
+	});
+});
+
+it('conserva todos los momentos cuando el día no tiene planes', () => {
+	const momentos = [
+		{ id: 'm1', tipo: 'momento' },
+		{ id: 'm2', tipo: 'momento' }
+	] as Post[];
+
+	expect(separarDia({ pendiente: [], hecho: momentos })).toEqual({ planes: [], momentos });
 });
 
 it('muestra el día guardado como un día del calendario local', () => {

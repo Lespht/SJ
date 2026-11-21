@@ -109,12 +109,20 @@ export function nombre(u?: Usuario | null) {
  * Lo pedimos una vez y lo reutilizamos.
  */
 let tokenArchivo: { valor: string; vence: number } | null = null;
+let solicitudTokenArchivo: Promise<string> | undefined;
 
 export async function obtenerTokenArchivo() {
-	if (!tokenArchivo || Date.now() > tokenArchivo.vence) {
-		tokenArchivo = { valor: await pb.files.getToken(), vence: Date.now() + 90_000 };
-	}
-	return tokenArchivo.valor;
+	if (tokenArchivo && Date.now() <= tokenArchivo.vence) return tokenArchivo.valor;
+	solicitudTokenArchivo ??= pb.files
+		.getToken()
+		.then((valor) => {
+			tokenArchivo = { valor, vence: Date.now() + 90_000 };
+			return valor;
+		})
+		.finally(() => {
+			solicitudTokenArchivo = undefined;
+		});
+	return solicitudTokenArchivo;
 }
 
 export function urlFoto(foto: Foto, token: string, thumb?: string) {

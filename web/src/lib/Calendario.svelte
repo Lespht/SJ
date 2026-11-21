@@ -1,21 +1,40 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { cargarMes, fechaCortaDia, marcasPorDia, semanasDelMes } from './calendario.js';
+	import {
+		cargarMes,
+		fechaCortaDia,
+		marcasPorDia,
+		semanasDelMes,
+		separarDia
+	} from './calendario.js';
+	import { fotosDe } from './feed.svelte.js';
 	import { descargarIcs } from './ics.js';
+	import { obtenerTokenArchivo, urlFoto } from './pb.svelte.js';
 
 	let { hoy }: { hoy: string } = $props();
 	const diasSemana = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 	const formatoMes = new Intl.DateTimeFormat('es', { month: 'long', timeZone: 'UTC' });
 	let mesVisible = $state(untrack(() => new Date(`${hoy.slice(0, 7)}-01T00:00:00Z`)));
 	let seleccionado = $state<string>();
+	let momentosAbiertos = $state(false);
 	let consulta = $state(untrack(consultarMes));
 
 	const anio = $derived(mesVisible.getUTCFullYear());
 	const tituloMes = $derived(formatoMes.format(mesVisible));
 	const dias = $derived(semanasDelMes(anio, mesVisible.getUTCMonth() + 1).flat());
 
-	function consultarMes() {
-		return cargarMes(mesVisible.getUTCFullYear(), mesVisible.getUTCMonth() + 1);
+	async function consultarMes() {
+		const posts = await cargarMes(mesVisible.getUTCFullYear(), mesVisible.getUTCMonth() + 1);
+		const fotos = posts.flatMap((post) => {
+			if (post.tipo !== 'momento') return [];
+			const foto = fotosDe(post)[0];
+			return foto ? [{ id: post.id, foto }] : [];
+		});
+		const token = fotos.length ? await obtenerTokenArchivo().catch(() => null) : null;
+		const miniaturas = new Map(
+			token ? fotos.map(({ id, foto }) => [id, urlFoto(foto, token, '100x100')]) : []
+		);
+		return { posts, miniaturas };
 	}
 
 	export function recargar() {
@@ -26,8 +45,13 @@
 		const siguiente = new Date(mesVisible);
 		siguiente.setUTCMonth(siguiente.getUTCMonth() + paso);
 		mesVisible = siguiente;
-		seleccionado = undefined;
+		seleccionarDia();
 		recargar();
+	}
+
+	function seleccionarDia(dia?: string) {
+		if (dia !== seleccionado) momentosAbiertos = false;
+		seleccionado = dia;
 	}
 
 	function etiquetaDia(dia: string, pendientes: number, hechos: number) {
@@ -59,7 +83,7 @@
 				<span class:esqueleto={dia} aria-hidden="true"></span>
 			{/each}
 		</div>
-	{:then posts}
+	{:then { posts, miniaturas }}
 		{@const marcas = marcasPorDia(posts)}
 		<div class="grilla">
 			{#each dias as dia, i (i)}
@@ -72,7 +96,7 @@
 						aria-current={dia === hoy ? 'date' : undefined}
 						aria-pressed={dia === seleccionado}
 						aria-label={etiquetaDia(dia, pendientes, hechos)}
-						onclick={() => (seleccionado = dia)}
+						onclick={() => seleccionarDia(dia)}
 					>
 						{Number(dia.slice(8))}
 						<span class="marcas" aria-hidden="true">
@@ -91,24 +115,76 @@
 			<div class="detalle">
 				<h3>{fechaCortaDia(seleccionado)}</h3>
 				{#if marca}
+					{@const { planes, momentos } = separarDia(marca)}
 					<ul>
-						{#each [...marca.pendiente, ...marca.hecho] as post (post.id)}
+						{#each planes as plan (plan.id)}
 							<li>
-								{#if post.tipo === 'plan'}
-									<strong>{post.titulo}</strong>
-									<span class="suave">
-										{post.hora ? `${post.hora} · ` : ''}{post.hecho ? 'Hecho' : 'Pendiente'}
+								<a class="fila" href={`/post/${plan.id}`}>
+									<span>
+										<strong>{plan.titulo}</strong>
+										<span class="estado suave">
+											{plan.hora ? `${plan.hora} · ` : ''}{plan.hecho ? 'Hecho' : 'Pendiente'}
+										</span>
 									</span>
-									{#if !post.hecho}
-										<button class="fantasma" onclick={() => descargarIcs(post)}>
-											Agregar a mi calendario
-										</button>
-									{/if}
-								{:else}
-									{post.texto || 'Momento'}
+									<span class="indicador" aria-hidden="true">›</span>
+								</a>
+								{#if !plan.hecho}
+									<button class="fantasma exportar" onclick={() => descargarIcs(plan)}>
+										Agregar a mi calendario
+									</button>
 								{/if}
 							</li>
 						{/each}
+						{#if momentos.length === 1}
+							<li>
+								<a class="fila" href={`/post/${momentos[0].id}`}>
+									<strong>Momentos (1)</strong>
+									<span class="indicador" aria-hidden="true">›</span>
+								</a>
+							</li>
+						{:else if momentos.length > 1}
+							<li>
+								<button
+									class="fantasma fila"
+									aria-expanded={momentosAbiertos}
+									onclick={() => (momentosAbiertos = !momentosAbiertos)}
+								>
+									<strong>Momentos ({momentos.length})</strong>
+									<span class="indicador" aria-hidden="true">›</span>
+								</button>
+								{#if momentosAbiertos}
+									<div class="tira">
+										{#each momentos as momento (momento.id)}
+											{@const url = miniaturas.get(momento.id)}
+											{@const texto = momento.texto.trim() || 'Momento'}
+											<a
+												class="miniatura"
+												href={`/post/${momento.id}`}
+												aria-label={url ? undefined : texto}
+											>
+												{#if url}
+													<img src={url} alt={texto} loading="lazy" />
+												{:else}
+													<svg
+														viewBox="0 0 24 24"
+														width="24"
+														height="24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="1.7"
+														aria-hidden="true"
+													>
+														<rect x="4" y="4" width="16" height="16" rx="2" />
+														<circle cx="9" cy="9" r="1.25" />
+														<path d="m4 17 5-4 4 3 3-4 4 5" />
+													</svg>
+												{/if}
+											</a>
+										{/each}
+									</div>
+								{/if}
+							</li>
+						{/if}
 					</ul>
 				{:else}
 					<p class="suave">Nada ese día.</p>
@@ -227,15 +303,71 @@
 	.detalle li {
 		padding: 0.5rem 0;
 		overflow-wrap: anywhere;
-		white-space: pre-wrap;
 	}
 
 	.detalle li + li {
 		border-top: 1px solid var(--borde);
 	}
 
-	.detalle li span {
+	.detalle .fila {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		min-height: 44px;
+		color: var(--texto);
+		text-align: left;
+		text-decoration: none;
+	}
+
+	.detalle .fila:hover {
+		color: var(--acento);
+	}
+
+	.fila.fantasma,
+	.exportar {
+		padding-inline: 0;
+	}
+
+	.estado {
 		display: block;
 		font-size: 0.85rem;
+	}
+
+	.indicador {
+		color: var(--texto-suave);
+		font-size: 1.25rem;
+	}
+
+	.fila[aria-expanded='true'] .indicador {
+		transform: rotate(90deg);
+	}
+
+	.tira {
+		display: flex;
+		gap: 0.5rem;
+		overflow-x: auto;
+		padding: 0.25rem;
+	}
+
+	.miniatura {
+		display: grid;
+		grid-template: 100% / 100%;
+		flex: none;
+		width: 100px;
+		height: 100px;
+		place-items: center;
+		overflow: hidden;
+		border-radius: 8px;
+		background: var(--fondo);
+		color: var(--texto-suave);
+	}
+
+	.miniatura img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
 </style>
