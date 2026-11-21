@@ -6,6 +6,7 @@ import {
 	crearMomento,
 	crearPlan,
 	ErrorFotosMomento,
+	fijarFecha,
 	restaurar
 } from './posts';
 import { pb, type Foto, type Post } from './pb.svelte';
@@ -83,7 +84,58 @@ it('crea el plan como pendiente', async () => {
 	const datos = { titulo: 'Paseo', texto: 'En la tarde', categoria: 'cita', autor: 'u1' } as const;
 
 	await expect(crearPlan(datos)).resolves.toBe(plan);
-	expect(crear).toHaveBeenCalledExactlyOnceWith({ ...datos, tipo: 'plan', hecho: false });
+	expect(crear).toHaveBeenCalledExactlyOnceWith({
+		...datos,
+		tipo: 'plan',
+		hecho: false,
+		fecha: '',
+		hora: ''
+	});
+});
+
+it('crea un plan pendiente con el día y la hora elegidos', async () => {
+	const crear = vi.spyOn(pb.collection('posts'), 'create').mockResolvedValue(plan);
+	const datos = { titulo: 'Cena', texto: '', categoria: 'comida', autor: 'u1' } as const;
+
+	await expect(crearPlan({ ...datos, dia: '2026-11-28', hora: '21:00' })).resolves.toBe(plan);
+	expect(crear).toHaveBeenCalledExactlyOnceWith({
+		...datos,
+		tipo: 'plan',
+		hecho: false,
+		fecha: '2026-11-28 12:00:00.000Z',
+		hora: '21:00'
+	});
+});
+
+it('crea el plan sin hora si no eligieron un día', async () => {
+	const crear = vi.spyOn(pb.collection('posts'), 'create').mockResolvedValue(plan);
+	const datos = { titulo: 'Cena', texto: '', categoria: 'comida', autor: 'u1' } as const;
+
+	await crearPlan({ ...datos, hora: '21:00' });
+	expect(crear).toHaveBeenCalledExactlyOnceWith({
+		...datos,
+		tipo: 'plan',
+		hecho: false,
+		fecha: '',
+		hora: ''
+	});
+});
+
+it('fija el día del plan sin exigir hora', async () => {
+	const actualizar = vi.spyOn(pb.collection('posts'), 'update').mockResolvedValue(plan);
+
+	await expect(fijarFecha(plan, '2026-11-28', '')).resolves.toBe(plan);
+	expect(actualizar).toHaveBeenCalledExactlyOnceWith(plan.id, {
+		fecha: '2026-11-28 12:00:00.000Z',
+		hora: ''
+	});
+});
+
+it('borra la hora cuando se quita el día del plan', async () => {
+	const actualizar = vi.spyOn(pb.collection('posts'), 'update').mockResolvedValue(plan);
+
+	await fijarFecha(plan, '', '21:00');
+	expect(actualizar).toHaveBeenCalledExactlyOnceWith(plan.id, { fecha: '', hora: '' });
 });
 
 it('completa el plan antes de subir sus dos fotos con la misma fecha', async () => {

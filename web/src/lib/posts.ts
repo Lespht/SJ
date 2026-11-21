@@ -1,3 +1,4 @@
+import { aFechaGuardada } from './calendario.js';
 import { pb, type Post } from './pb.svelte.js';
 
 export const categoriasPlan = [
@@ -8,8 +9,25 @@ export const categoriasPlan = [
 	{ valor: 'otro', label: 'Otro' }
 ] as const;
 
-export function crearPlan(datos: Pick<Post, 'titulo' | 'texto' | 'categoria' | 'autor'>) {
-	return pb.collection('posts').create<Post>({ ...datos, tipo: 'plan', hecho: false });
+export function crearPlan({
+	dia = '',
+	hora = '',
+	...datos
+}: Pick<Post, 'titulo' | 'texto' | 'categoria' | 'autor'> & { dia?: string; hora?: string }) {
+	return pb.collection('posts').create<Post>({
+		...datos,
+		tipo: 'plan',
+		hecho: false,
+		fecha: aFechaGuardada(dia),
+		hora: dia ? hora : ''
+	});
+}
+
+export function fijarFecha(plan: Post, dia: string, hora: string): Promise<Post> {
+	return pb.collection('posts').update<Post>(plan.id, {
+		fecha: aFechaGuardada(dia),
+		hora: dia ? hora : ''
+	});
 }
 
 export class ErrorFotosPlan extends Error {
@@ -34,7 +52,7 @@ export class ErrorFotosMomento extends Error {
 
 export async function crearMomento(archivos: File[], texto: string, fecha: string, autor: string) {
 	if (!archivos.length) throw new Error('Elegí al menos una foto.');
-	const cuando = `${fecha} 12:00:00.000Z`;
+	const cuando = aFechaGuardada(fecha);
 	const momento = await pb.collection('posts').create<Post>({
 		tipo: 'momento',
 		texto,
@@ -50,7 +68,7 @@ export async function crearMomento(archivos: File[], texto: string, fecha: strin
 }
 
 export async function completarPlan(plan: Post, archivos: File[], fecha: string, autor: string) {
-	const cuando = `${fecha} 12:00:00.000Z`;
+	const cuando = aFechaGuardada(fecha);
 	const actualizado = await pb
 		.collection('posts')
 		.update<Post>(plan.id, { hecho: true, fecha: cuando });

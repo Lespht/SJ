@@ -36,8 +36,10 @@ export type Post = RecordModel & {
 	texto: string;
 	categoria: '' | 'cita' | 'viaje' | 'regalo' | 'comida' | 'otro';
 	hecho: boolean;
-	/** Cuándo pasó. Vacío en un plan pendiente. */
+	/** Día planeado o día en que pasó. Vacío en un plan sin fecha. */
 	fecha: string;
+	/** HH:MM o vacío. Solo con fecha. */
+	hora: string;
 	archivado: boolean;
 	archivado_en: string;
 	autor: string;

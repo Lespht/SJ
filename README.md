@@ -20,7 +20,7 @@ web/                      código del frontend
 | Colección  | Campos                                                            | Reglas                                                                  |
 |------------|-------------------------------------------------------------------|-------------------------------------------------------------------------|
 | `users`    | email, name, avatar, modo, acento, mensajes_vistos                | ver: logueados · editar: uno mismo · se crean desde el admin            |
-| `posts`    | tipo (momento/plan), titulo, texto, categoria, hecho, fecha, archivado, archivado_en, autor | ver: logueados · un plan lo puede completar cualquiera; un momento, solo su autor · archivar: cualquiera · borrar: autor, solo si está archivado o no tiene fotos |
+| `posts`    | tipo (momento/plan), titulo, texto, categoria, hecho, fecha, hora, archivado, archivado_en, autor | ver: logueados · un plan lo puede completar cualquiera; un momento, solo su autor · archivar: cualquiera · borrar: autor, solo si está archivado o no tiene fotos |
 | `fotos`    | imagen (protegida), descripcion, fecha, post, autor               | ver: logueados · editar/borrar: autor                                   |
 | `notas`    | foto, autor, texto (una por persona y foto)                       | ver: logueados · editar/borrar: autor · se borran con la foto           |
 | `mensajes` | texto, autor                                                      | ver: logueados · editar/borrar: autor                                   |

@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { scale } from 'svelte/transition';
+	import { diaDe, hoyLocal } from '#lib/calendario.js';
 	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import {
@@ -19,7 +20,8 @@
 		categoriasPlan,
 		completarPlan,
 		crearPlan,
-		ErrorFotosPlan
+		ErrorFotosPlan,
+		fijarFecha
 	} from '#lib/posts.js';
 
 	let planes = $state<Post[]>([]);
@@ -32,6 +34,11 @@
 	let titulo = $state('');
 	let texto = $state('');
 	let categoria = $state<Post['categoria']>('cita');
+	let diaNuevo = $state('');
+	let horaNueva = $state('');
+	let editandoFecha = $state<string>();
+	let diaEditado = $state('');
+	let horaEditada = $state('');
 	let completando = $state<string>();
 	let archivos = $state<FileList>();
 	let fecha = $state('');
@@ -72,9 +79,18 @@
 		ocupado = true;
 		error = '';
 		try {
-			await crearPlan({ titulo, texto, categoria, autor: sesion.usuario.id });
+			await crearPlan({
+				titulo,
+				texto,
+				categoria,
+				autor: sesion.usuario.id,
+				dia: diaNuevo,
+				hora: horaNueva
+			});
 			titulo = '';
 			texto = '';
+			diaNuevo = '';
+			horaNueva = '';
 			await cargar();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'No se pudo guardar el plan.';
@@ -83,9 +99,33 @@
 		}
 	}
 
+	function abrirFecha(plan: Post) {
+		completando = undefined;
+		diaEditado = diaDe(plan.fecha);
+		horaEditada = plan.hora ?? '';
+		editandoFecha = plan.id;
+	}
+
+	async function guardarFecha(plan: Post, dia: string, hora: string) {
+		if (ocupado) return;
+		ocupado = true;
+		error = '';
+		try {
+			const actualizado = await fijarFecha(plan, dia, hora);
+			planes = planes.map((item) =>
+				item.id === plan.id ? { ...item, fecha: actualizado.fecha, hora: actualizado.hora } : item
+			);
+			editandoFecha = undefined;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'No se pudo guardar la fecha.';
+		} finally {
+			ocupado = false;
+		}
+	}
+
 	function abrirFormulario(plan: Post) {
-		const hoy = new Date();
-		fecha = new Date(hoy.getTime() - hoy.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+		editandoFecha = undefined;
+		fecha = diaDe(plan.fecha) || hoyLocal();
 		archivos = undefined;
 		completando = plan.id;
 	}
@@ -139,6 +179,7 @@
 			await accion(plan);
 			planes = planes.filter((item) => item.id !== plan.id);
 			if (completando === plan.id) completando = undefined;
+			if (editandoFecha === plan.id) editandoFecha = undefined;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'No se pudo quitar el plan.';
 		} finally {
@@ -158,6 +199,12 @@
 	</select>
 	<textarea placeholder="Detalles (opcional)" bind:value={texto} rows="2" maxlength="2000"
 	></textarea>
+	<div class="campos-fecha">
+		<label>Día (opcional)<input type="date" bind:value={diaNuevo} disabled={ocupado} /></label>
+		<label>
+			Hora (opcional)<input type="time" bind:value={horaNueva} disabled={!diaNuevo || ocupado} />
+		</label>
+	</div>
 	<button disabled={ocupado || cargando}>Agregar</button>
 </form>
 
@@ -197,7 +244,9 @@
 						{/if}
 						<div class="texto">
 							<h2>{plan.titulo}</h2>
-							{#if plan.fecha}<p class="suave">{fechaCorta(plan.fecha)}</p>{/if}
+							{#if plan.fecha}<p class="suave">
+									{fechaCorta(`${diaDe(plan.fecha)}T12:00:00`)}
+								</p>{/if}
 							<button class="fantasma" disabled={ocupado} onclick={() => quitar(plan, archivar)}>
 								Archivar
 							</button>
@@ -220,6 +269,11 @@
 						</div>
 						{#if plan.texto}<p>{plan.texto}</p>{/if}
 						<p class="suave">Idea de {nombre(plan.expand?.autor)}</p>
+						{#if plan.fecha}
+							<p class="suave">
+								{fechaCorta(`${diaDe(plan.fecha)}T12:00:00`)}{plan.hora ? ` · ${plan.hora}` : ''}
+							</p>
+						{/if}
 						{#if completando === plan.id}
 							<form class="completar" onsubmit={(e) => guardar(e, plan)}>
 								<label>
@@ -246,8 +300,55 @@
 									</button>
 								</div>
 							</form>
+						{:else if editandoFecha === plan.id}
+							<form
+								class="completar"
+								onsubmit={(e) => {
+									e.preventDefault();
+									void guardarFecha(plan, diaEditado, horaEditada);
+								}}
+							>
+								<div class="campos-fecha">
+									<label>
+										Día (opcional)<input type="date" bind:value={diaEditado} disabled={ocupado} />
+									</label>
+									<label>
+										Hora (opcional)<input
+											type="time"
+											bind:value={horaEditada}
+											disabled={!diaEditado || ocupado}
+										/>
+									</label>
+								</div>
+								<div class="acciones">
+									<button disabled={ocupado}>Guardar</button>
+									{#if plan.fecha}
+										<button
+											type="button"
+											class="fantasma"
+											disabled={ocupado}
+											onclick={() => guardarFecha(plan, '', '')}
+										>
+											Quitar fecha
+										</button>
+									{/if}
+									<button
+										type="button"
+										class="fantasma"
+										disabled={ocupado}
+										onclick={() => (editandoFecha = undefined)}
+									>
+										Cancelar
+									</button>
+								</div>
+							</form>
 						{:else}
-							<button disabled={ocupado} onclick={() => abrirFormulario(plan)}>Lo hicimos</button>
+							<div class="acciones">
+								<button disabled={ocupado} onclick={() => abrirFormulario(plan)}>Lo hicimos</button>
+								<button class="fantasma" disabled={ocupado} onclick={() => abrirFecha(plan)}>
+									{plan.fecha ? 'Cambiar fecha' : 'Ponerle fecha'}
+								</button>
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -272,6 +373,12 @@
 	.nueva button {
 		grid-column: 1 / -1;
 		margin: 0;
+	}
+	.campos-fecha {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
 	}
 	.filtros {
 		display: flex;

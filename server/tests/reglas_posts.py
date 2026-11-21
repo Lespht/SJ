@@ -67,6 +67,10 @@ st, _ = req("DELETE", f"{P}/{m['id']}", A); caso("A borra su momento archivado",
 st, _ = req("GET", f"/api/collections/fotos/records/{f['id']}", A); caso("la foto se fue con el post (404)", False, st)
 
 st, p = req("POST", P, A, {"tipo": "plan", "titulo": "[prueba] pasta", "autor": a_id}); caso("A crea un plan", True, st)
+st, _ = req("PATCH", f"{P}/{p['id']}", B, {"fecha": "2026-11-28 12:00:00.000Z", "hora": "21:00"}); caso("B fija el día y la hora del plan pendiente de A", True, st)
+st, _ = req("PATCH", f"{P}/{p['id']}", B, {"hora": "25:00"}); caso("el plan rechaza una hora fuera de rango", False, st)
+st, _ = req("PATCH", f"{P}/{p['id']}", B, {"hora": "9:5"}); caso("el plan exige el formato HH:MM", False, st)
+st, _ = req("PATCH", f"{P}/{p['id']}", B, {"fecha": "", "hora": ""}); caso("B quita el día y la hora del plan", True, st)
 st, _ = req("PATCH", f"{P}/{p['id']}", B, {"hecho": True, "titulo": "[prueba] pasta casera"}); caso("B edita y completa el plan de A", True, st)
 st, _ = req("DELETE", f"{P}/{p['id']}", A); caso("A borra su plan sin fotos", True, st)
 
