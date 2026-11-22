@@ -1,0 +1,24 @@
+# Servicio systemd de USUARIO para DESARROLLO (no requiere sudo), igual que server/nosotros.service.
+# Producción se instala desde el repo homeserver.
+# Antes: `pnpm install` y `pnpm claves` en avisos/ (crea avisos/.env).
+# Instalación:
+#   cp avisos.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now avisos
+#
+# Logs: journalctl --user -u avisos -f
+
+[Unit]
+Description=Nosotros (avisos push)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Projects/SJ/avisos
+EnvironmentFile=%h/Projects/SJ/avisos/.env
+# Node de fnm (alias default); systemd no ve el PATH de la shell.
+ExecStart=%h/.local/share/fnm/aliases/default/bin/node src/main.ts
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

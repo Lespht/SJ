@@ -1,5 +1,11 @@
 import { pb } from './pb.svelte.js';
 
+// Clave pública VAPID del servicio de avisos (NOS-36). Es pública: va en el código para que todo build
+// la lleve. La privada vive solo en avisos/.env y en el servidor. VITE_VAPID_PUBLICA la reemplaza (tests).
+const vapidPublica = (): string =>
+	import.meta.env.VITE_VAPID_PUBLICA ??
+	'BEks531UkRc_ETtI4ObRFJnXvDf2KRNoqnVUdjHwerOiaqo4ZJmnmAWoBEE7PpTw0QoZwn65uBSD9tCW54FJTvU';
+
 export type EstadoAvisos = 'no-soportado' | 'sin-clave' | 'bloqueado' | 'activo' | 'inactivo';
 
 export function requiereInstalarAvisos(): boolean {
@@ -22,7 +28,7 @@ export function soportaAvisos(): boolean {
 
 function estadoPrevio(): EstadoAvisos | undefined {
 	if (!soportaAvisos()) return 'no-soportado';
-	if (!import.meta.env.VITE_VAPID_PUBLICA) return 'sin-clave';
+	if (!vapidPublica()) return 'sin-clave';
 	if (Notification.permission === 'denied') return 'bloqueado';
 }
 
@@ -63,7 +69,7 @@ export async function activarAvisos(usuarioId: string): Promise<EstadoAvisos> {
 		(await pushManager.getSubscription()) ??
 		(await pushManager.subscribe({
 			userVisibleOnly: true,
-			applicationServerKey: clavePublica(import.meta.env.VITE_VAPID_PUBLICA)
+			applicationServerKey: clavePublica(vapidPublica())
 		}));
 	const { endpoint } = suscripcion;
 	if (!(await registroDe(endpoint))) {
