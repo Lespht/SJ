@@ -112,6 +112,23 @@ select {
 	color: var(--texto);
 }
 
+/* Safari de iPhone les da a fecha y hora un ancho mínimo propio, más alto y texto centrado: se salían
+   de la columna. Sin su apariencia nativa se comportan como los demás campos (el selector sigue igual). */
+input[type='date'],
+input[type='time'] {
+	-webkit-appearance: none;
+	appearance: none;
+	min-width: 0;
+	min-height: calc(1lh + 1.2rem + 2px);
+	text-align: left;
+}
+input::-webkit-date-and-time-value {
+	text-align: left;
+}
+label:has(> input[type='date'], > input[type='time']) {
+	min-width: 0;
+}
+
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
