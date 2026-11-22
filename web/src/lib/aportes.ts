@@ -6,7 +6,7 @@ export function cargarAportes(yo: string): Promise<Post[]> {
 			yo
 		}),
 		sort: '-fecha,-created',
-		expand: 'fotos_via_post',
+		expand: 'fotos_via_post,posts_via_respuesta_a',
 		requestKey: 'aportes'
 	});
 }

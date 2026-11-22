@@ -17,7 +17,7 @@ it('pide los aportes propios y los posts con fotos propias, sin incluir archivad
 			/^archivado = false && \(autor = ["']u1["'] \|\| fotos_via_post\.autor \?= ["']u1["']\)$/
 		),
 		sort: '-fecha,-created',
-		expand: 'fotos_via_post',
+		expand: 'fotos_via_post,posts_via_respuesta_a',
 		requestKey: 'aportes'
 	});
 });

@@ -17,6 +17,18 @@
 	} from '#lib/pb.svelte.js';
 	import { guardarAjustes, temaDe } from '#lib/perfil.svelte.js';
 	import { borrarPost, restaurar } from '#lib/posts.js';
+	import { goto } from '$app/navigation';
+	import { SvelteSet } from 'svelte/reactivity';
+	import CrearPlanConFotos from '#lib/CrearPlanConFotos.svelte';
+	import ElegirPlan from '#lib/ElegirPlan.svelte';
+	import { feed } from '#lib/feed.svelte.js';
+	import {
+		crearPlanConFotos,
+		guardarVariosEnPlan,
+		motivoParaNoMover,
+		moverFotosA,
+		seleccionable
+	} from '#lib/juntar.js';
 
 	const modos = [
 		{ valor: 'sistema', etiqueta: 'Sistema' },
@@ -44,9 +56,66 @@
 	let confirmar = $state<string>();
 	let error = $state('');
 
+	// Seleccionar varios (NOS-44): momentos propios → guardarlos en un plan, mover sus fotos a un
+	// plan o crear un plan con ellas.
+	let aportes = $state.raw<Post[]>([]);
+	let seleccionando = $state(false);
+	const elegidos = new SvelteSet<string>();
+	let accion = $state<'guardar' | 'mover' | 'crear'>();
+	let avisoSeleccion = $state('');
+	const momentosElegidos = $derived(aportes.filter((post) => elegidos.has(post.id)));
+	const fotosElegidas = $derived(
+		momentosElegidos.reduce((suma, momento) => suma + fotosDe(momento).length, 0)
+	);
+
+	function dejarDeSeleccionar() {
+		seleccionando = false;
+		elegidos.clear();
+		avisoSeleccion = '';
+	}
+
+	function alternar(post: Post) {
+		if (elegidos.has(post.id)) elegidos.delete(post.id);
+		else elegidos.add(post.id);
+		avisoSeleccion = '';
+	}
+
+	function pedir(nueva: 'guardar' | 'mover' | 'crear') {
+		avisoSeleccion = '';
+		if (nueva !== 'guardar') {
+			const motivo = momentosElegidos.map(motivoParaNoMover).find(Boolean);
+			if (motivo) {
+				avisoSeleccion = motivo;
+				return;
+			}
+		}
+		accion = nueva;
+	}
+
+	/** Después de juntar: se recargan Mis aportes y el feed (lo movido ya no está donde estaba). */
+	function terminar(planId?: string) {
+		dejarDeSeleccionar();
+		revisionAportes += 1;
+		feed.version += 1;
+		if (planId) void goto(`/post/${planId}`);
+	}
+
+	/** Si falla a mitad de camino, recarga para que reintentar siga con lo que falta. */
+	async function conRecarga<T>(hacer: () => Promise<T>): Promise<T> {
+		try {
+			return await hacer();
+		} catch (fallo) {
+			elegidos.clear();
+			revisionAportes += 1;
+			feed.version += 1;
+			throw fallo;
+		}
+	}
+
 	async function cargarCuadros(yo?: string) {
 		if (!yo) return [];
 		const posts = await cargarAportes(yo);
+		aportes = posts;
 		const cuadros = posts.map((post) => ({ post, foto: fotosDe(post)[0] }));
 		const token = cuadros.some(({ foto }) => foto)
 			? await obtenerTokenArchivo().catch(() => null)
@@ -143,7 +212,20 @@
 </header>
 
 <section class="aportes" aria-labelledby="titulo-aportes">
-	<h2 id="titulo-aportes">Mis aportes</h2>
+	<div class="titulo-aportes">
+		<h2 id="titulo-aportes">Mis aportes</h2>
+		{#if aportes.some((post) => usuarioId && seleccionable(post, usuarioId))}
+			<button
+				class="fantasma"
+				onclick={() => (seleccionando ? dejarDeSeleccionar() : (seleccionando = true))}
+			>
+				{seleccionando ? 'Listo' : 'Seleccionar'}
+			</button>
+		{/if}
+	</div>
+	{#if seleccionando}
+		<p class="suave ayuda">Tocá tus momentos para juntarlos en un plan.</p>
+	{/if}
 	{#key revisionAportes}
 		{#await cargarCuadros(usuarioId)}
 			<div class="grilla-aportes" role="status" aria-label="Cargando tus aportes">
@@ -158,13 +240,34 @@
 						{@const esPlan = post.tipo === 'plan'}
 						{@const texto =
 							(esPlan ? post.titulo : post.texto).trim() || (esPlan ? 'Plan' : 'Momento')}
-						<a class="cuadro" class:plan={esPlan} href={`/post/${post.id}`} aria-label={texto}>
-							{#if miniatura}
-								<img src={miniatura} alt="" loading="lazy" />
-							{:else}
-								<span class="cuadro-texto">{texto}</span>
-							{/if}
-						</a>
+						{#if seleccionando}
+							{@const elegible = !!usuarioId && seleccionable(post, usuarioId)}
+							<button
+								type="button"
+								class="cuadro"
+								class:plan={esPlan}
+								class:elegido={elegidos.has(post.id)}
+								disabled={!elegible}
+								aria-pressed={elegible ? elegidos.has(post.id) : undefined}
+								aria-label={texto}
+								onclick={() => alternar(post)}
+							>
+								{#if miniatura}
+									<img src={miniatura} alt="" loading="lazy" />
+								{:else}
+									<span class="cuadro-texto">{texto}</span>
+								{/if}
+								{#if elegidos.has(post.id)}<span class="marca" aria-hidden="true">✓</span>{/if}
+							</button>
+						{:else}
+							<a class="cuadro" class:plan={esPlan} href={`/post/${post.id}`} aria-label={texto}>
+								{#if miniatura}
+									<img src={miniatura} alt="" loading="lazy" />
+								{:else}
+									<span class="cuadro-texto">{texto}</span>
+								{/if}
+							</a>
+						{/if}
 					{/each}
 				</div>
 			{:else}
@@ -176,6 +279,53 @@
 		{/await}
 	{/key}
 </section>
+
+{#if seleccionando}
+	<div class="barra-seleccion" role="region" aria-label="Acciones con lo elegido">
+		<p aria-live="polite">
+			{elegidos.size === 1 ? '1 elegido' : `${elegidos.size} elegidos`}
+		</p>
+		{#if avisoSeleccion}<p class="error" role="alert">{avisoSeleccion}</p>{/if}
+		<div class="acciones-seleccion">
+			<button class="fantasma" disabled={!elegidos.size} onclick={() => pedir('guardar')}>
+				Guardar en un plan
+			</button>
+			<button class="fantasma" disabled={!fotosElegidas} onclick={() => pedir('mover')}>
+				Mover fotos a un plan
+			</button>
+			<button disabled={!fotosElegidas} onclick={() => pedir('crear')}>Crear un plan</button>
+		</div>
+	</div>
+{/if}
+
+{#if accion === 'guardar'}
+	<ElegirPlan
+		elegir={async (plan) => {
+			await conRecarga(() => guardarVariosEnPlan(momentosElegidos, plan));
+			terminar();
+		}}
+		cerrar={() => (accion = undefined)}
+	/>
+{:else if accion === 'mover'}
+	<ElegirPlan
+		titulo="Mover las fotos a un plan"
+		elegir={async (plan) => {
+			await conRecarga(() => moverFotosA(momentosElegidos, plan));
+			terminar(plan.id);
+		}}
+		cerrar={() => (accion = undefined)}
+	/>
+{:else if accion === 'crear' && usuarioId}
+	{@const yo = usuarioId}
+	<CrearPlanConFotos
+		fotos={fotosElegidas}
+		crear={async (datos) => {
+			const plan = await conRecarga(() => crearPlanConFotos(momentosElegidos, datos, yo));
+			terminar(plan.id);
+		}}
+		cerrar={() => (accion = undefined)}
+	/>
+{/if}
 
 <details class="plegable">
 	<summary>Ajustes <span class="indicador" aria-hidden="true">›</span></summary>
@@ -377,6 +527,83 @@
 		transform: rotate(-3deg);
 		pointer-events: none;
 		content: '';
+	}
+	.titulo-aportes {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.titulo-aportes button {
+		min-height: 44px;
+		padding-inline: 0;
+	}
+	.ayuda {
+		margin: -0.25rem 0 0.65rem;
+	}
+	button.cuadro {
+		width: 100%;
+		padding: 0;
+		border: 0;
+		cursor: pointer;
+	}
+	button.cuadro:disabled {
+		opacity: 0.35;
+		cursor: default;
+	}
+	.cuadro.elegido {
+		outline: 3px solid var(--acento);
+		outline-offset: -3px;
+	}
+	.marca {
+		position: absolute;
+		right: 0.4rem;
+		bottom: 0.4rem;
+		display: grid;
+		width: 1.6rem;
+		height: 1.6rem;
+		place-items: center;
+		border-radius: 50%;
+		background: var(--acento);
+		color: var(--sobre-acento);
+		font-weight: 700;
+	}
+	/* Encima de la barra flotante, con lo elegido y las tres acciones. */
+	.barra-seleccion {
+		position: fixed;
+		right: 16px;
+		bottom: calc(var(--alto-nav) + 8px);
+		left: 16px;
+		z-index: 11;
+		display: grid;
+		gap: 0.4rem;
+		max-width: 420px;
+		margin-inline: auto;
+		padding: 0.75rem;
+		border: 1px solid var(--borde);
+		border-radius: 16px;
+		background: var(--fondo-elevado);
+		box-shadow: var(--sombra-polaroid);
+	}
+	.barra-seleccion p {
+		margin: 0;
+		font-weight: 600;
+	}
+	.barra-seleccion .error {
+		font-weight: 400;
+	}
+	.acciones-seleccion {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.4rem;
+	}
+	.acciones-seleccion button {
+		min-height: 44px;
+		margin: 0;
+		padding-inline: 0.5rem;
+	}
+	.acciones-seleccion button:last-child {
+		grid-column: 1 / -1;
 	}
 	.cuadro-esqueleto {
 		background: var(--borde);
