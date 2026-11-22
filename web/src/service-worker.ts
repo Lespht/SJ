@@ -2,6 +2,11 @@
 
 const worker = globalThis as unknown as ServiceWorkerGlobalScope;
 
+// Sin caché offline no hay nada que esperar: la versión nueva toma el control enseguida tras un deploy,
+// en vez de quedar en espera hasta que se cierren todas las ventanas de la app.
+worker.addEventListener('install', () => void worker.skipWaiting());
+worker.addEventListener('activate', (evento) => evento.waitUntil(worker.clients.claim()));
+
 function destino(url: unknown): string {
 	const inicio = new URL('/', worker.location.origin);
 	if (typeof url === 'string') {
