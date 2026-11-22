@@ -55,6 +55,7 @@
 				<PostTarjeta
 					post={actual}
 					{urls}
+					notasPorFoto
 					alCambiar={(actualizado) => cambiarPost(post, actualizado, urls)}
 					alQuitar={() => goto('/')}
 					alResponder={() => (reintento += 1)}

@@ -12,6 +12,7 @@
 		type Post
 	} from '#lib/pb.svelte.js';
 	import Icono from '#lib/Icono.svelte';
+	import { borrarNota, guardarNota } from '#lib/notas.js';
 	import { borrarPost } from '#lib/posts.js';
 
 	const POR_PAGINA = 30;
@@ -46,7 +47,7 @@
 		if (abierta) abierta = aplicar(abierta);
 	}
 
-	async function guardarNota(e: SubmitEvent) {
+	async function enviarNota(e: SubmitEvent) {
 		e.preventDefault();
 		const texto = borradorNota?.trim();
 		if (!abierta || !sesion.usuario || !texto) return;
@@ -54,11 +55,8 @@
 		guardandoNota = true;
 		errorNota = '';
 		try {
-			const nota = miNota
-				? await pb.collection('notas').update<Nota>(miNota.id, { texto }, { expand: 'autor' })
-				: await pb
-						.collection('notas')
-						.create<Nota>({ foto: fotoId, autor: sesion.usuario.id, texto }, { expand: 'autor' });
+			const nota = await guardarNota(abierta, miNota, texto);
+			if (!nota) return;
 			actualizarNotas(fotoId, (ns) => [...ns.filter((n) => n.id !== nota.id), nota]);
 			borradorNota = null;
 		} catch (err) {
@@ -68,10 +66,10 @@
 		}
 	}
 
-	async function borrarNota(n: Nota) {
+	async function quitarNota(n: Nota) {
 		errorNota = '';
 		try {
-			await pb.collection('notas').delete(n.id);
+			await borrarNota(n);
 			actualizarNotas(n.foto, (ns) => ns.filter((x) => x.id !== n.id));
 			borradorNota = null;
 		} catch (err) {
@@ -218,7 +216,7 @@
 										>
 											<Icono nombre="editar" tam={16} />
 										</button>
-										<button class="mini" onclick={() => borrarNota(n)} aria-label="Borrar nota">
+										<button class="mini" onclick={() => quitarNota(n)} aria-label="Borrar nota">
 											<Icono nombre="borrar" tam={16} />
 										</button>
 									</div>
@@ -228,7 +226,7 @@
 					{/each}
 
 					{#if borradorNota !== null}
-						<form class="nota-form" onsubmit={guardarNota}>
+						<form class="nota-form" onsubmit={enviarNota}>
 							<!-- svelte-ignore a11y_autofocus -->
 							<textarea
 								bind:value={borradorNota}

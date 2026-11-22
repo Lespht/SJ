@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import Avatar from './Avatar.svelte';
 	import { fechaCortaDia } from './calendario.js';
 	import Confirmar from './Confirmar.svelte';
@@ -11,7 +12,8 @@
 	import Hoja from './Hoja.svelte';
 	import Icono from './Icono.svelte';
 	import Mazo from './Mazo.svelte';
-	import { fechaRelativa, nombre, sesion, type Post } from './pb.svelte.js';
+	import { borrarNota, guardarNota, reemplazarNotas } from './notas.js';
+	import { fechaRelativa, nombre, sesion, type Foto, type Nota, type Post } from './pb.svelte.js';
 	import { archivar, borrarPost, categoriasPlan, motivoParaNoBorrar } from './posts.js';
 
 	let {
@@ -19,7 +21,8 @@
 		urls,
 		alQuitar,
 		alCambiar,
-		alResponder
+		alResponder,
+		notasPorFoto = false
 	}: {
 		post: Post;
 		urls: Map<string, string>;
@@ -27,6 +30,7 @@
 		alQuitar?: () => void;
 		alCambiar?: (post: Post) => void;
 		alResponder?: () => void;
+		notasPorFoto?: boolean;
 	} = $props();
 
 	const esMio = $derived(!!sesion.usuario && post.autor === sesion.usuario.id);
@@ -77,11 +81,56 @@
 	const pendiente = $derived(esPlan && !post.hecho);
 	const categoria = $derived(categoriasPlan.find(({ valor }) => valor === post.categoria)?.label);
 	const fotos = $derived(fotosDe(post));
+	let arriba = $state<string>();
+	const fotoArriba = $derived(notasPorFoto ? fotos.find((foto) => foto.id === arriba) : undefined);
+	const borradores = new SvelteMap<string, string>();
+	let guardandoNota = $state(false);
+	let errorNota = $state<{ foto: string; mensaje: string }>();
 	const notas = $derived(
-		fotos
+		(notasPorFoto ? (fotoArriba ? [fotoArriba] : []) : fotos)
 			.flatMap((foto) => foto.expand?.notas_via_foto ?? [])
 			.sort((a, b) => a.created.localeCompare(b.created))
 	);
+	const miNota = $derived(notas.find((nota) => nota.autor === sesion.usuario?.id));
+
+	async function enviarNota(evento: SubmitEvent, foto: Foto) {
+		evento.preventDefault();
+		const texto = borradores.get(foto.id);
+		if (guardandoNota || !texto?.trim() || !sesion.usuario) return;
+		guardandoNota = true;
+		errorNota = undefined;
+		try {
+			const nota = await guardarNota(foto, miNota, texto);
+			if (!nota) return;
+			actualizarNota(foto.id, nota.id, nota);
+			borradores.delete(foto.id);
+		} catch {
+			errorNota = { foto: foto.id, mensaje: 'No se pudo guardar la nota.' };
+		} finally {
+			guardandoNota = false;
+		}
+	}
+
+	async function quitarNota(nota: Nota) {
+		if (guardandoNota || nota.autor !== sesion.usuario?.id) return;
+		guardandoNota = true;
+		errorNota = undefined;
+		try {
+			await borrarNota(nota);
+			actualizarNota(nota.foto, nota.id);
+		} catch {
+			errorNota = { foto: nota.foto, mensaje: 'No se pudo borrar la nota.' };
+		} finally {
+			guardandoNota = false;
+		}
+	}
+
+	function actualizarNota(fotoId: string, notaId: string, nota?: Nota) {
+		const foto = fotos.find((foto) => foto.id === fotoId);
+		if (!foto) return;
+		const otras = (foto.expand?.notas_via_foto ?? []).filter(({ id }) => id !== notaId);
+		alCambiar?.(reemplazarNotas(post, fotoId, nota ? [...otras, nota] : otras));
+	}
 </script>
 
 {#snippet esqueletoPost()}
@@ -173,6 +222,7 @@
 		<div class="marco-mazo">
 			{#key fotos.map((foto) => foto.id).join(',')}
 				<Mazo
+					bind:arriba
 					fotos={fotos.map((foto) => ({
 						id: foto.id,
 						src: urls.get(foto.id) ?? '',
@@ -182,6 +232,77 @@
 			{/key}
 			{#if esPlan}<span class="cinta" aria-hidden="true"></span>{/if}
 		</div>
+	{/if}
+	{#if fotoArriba}
+		{@const foto = fotoArriba}
+		{@const borrador = borradores.get(foto.id)}
+		<section class="notas-foto" aria-label="Notas de la foto">
+			{#each notas as nota (nota.id)}
+				{#if nota.id !== miNota?.id || borrador === undefined}
+					<div class="nota">
+						<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
+						{#if nota.id === miNota?.id}
+							<div class="acciones-nota">
+								<button
+									class="fantasma"
+									aria-label="Editar nota"
+									disabled={guardandoNota}
+									onclick={() => borradores.set(foto.id, nota.texto)}
+								>
+									<Icono nombre="editar" tam={18} />
+								</button>
+								<button
+									class="fantasma"
+									aria-label="Borrar nota"
+									disabled={guardandoNota}
+									onclick={() => quitarNota(nota)}
+								>
+									<Icono nombre="borrar" tam={18} />
+								</button>
+							</div>
+						{/if}
+					</div>
+				{/if}
+			{/each}
+			{#if borrador !== undefined && sesion.usuario}
+				<form onsubmit={(evento) => enviarNota(evento, foto)}>
+					<textarea
+						aria-label="Tu nota"
+						placeholder="Tu nota…"
+						rows="2"
+						maxlength="500"
+						disabled={guardandoNota}
+						bind:value={
+							() => borradores.get(foto.id) ?? '', (texto) => borradores.set(foto.id, texto)
+						}></textarea>
+					<div class="acciones-nota">
+						<button disabled={guardandoNota || !borrador.trim()}>Guardar</button>
+						<button
+							type="button"
+							class="fantasma"
+							disabled={guardandoNota}
+							onclick={() => {
+								borradores.delete(foto.id);
+								errorNota = undefined;
+							}}
+						>
+							Cancelar
+						</button>
+					</div>
+				</form>
+			{:else if !miNota && sesion.usuario}
+				<button
+					class="fantasma escribir-nota"
+					disabled={guardandoNota}
+					onclick={() => borradores.set(foto.id, '')}
+				>
+					Escribir una nota
+				</button>
+			{/if}
+			{#if errorNota?.foto === foto.id}
+				<p class="error" role="alert">{errorNota.mensaje}</p>
+			{/if}
+		</section>
 	{/if}
 	<div
 		class="pie"
@@ -193,9 +314,11 @@
 			<span class="etiqueta-plan">Plan{categoria ? ` · ${categoria}` : ''}</span>
 		{/if}
 		{#if post.texto}<p class="texto">{post.texto}</p>{/if}
-		{#each notas as nota (nota.id)}
-			<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
-		{/each}
+		{#if !notasPorFoto}
+			{#each notas as nota (nota.id)}
+				<p><b>{nombre(nota.expand?.autor)}</b> {nota.texto}</p>
+			{/each}
+		{/if}
 		{#if post.descartada_en}
 			<a class="guardado suave" href={`/post/${post.descartada_en}`}>
 				Una de las descartadas de «{post.expand?.descartada_en?.titulo ?? 'un plan'}»
@@ -410,6 +533,36 @@
 	}
 	.texto {
 		white-space: pre-wrap;
+	}
+	.notas-foto {
+		display: grid;
+		gap: 0.5rem;
+	}
+	.nota {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.nota p {
+		flex: 1;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.notas-foto p {
+		margin: 0;
+	}
+	.notas-foto textarea {
+		width: 100%;
+		resize: vertical;
+	}
+	.acciones-nota {
+		display: flex;
+		justify-content: end;
+		gap: 0.25rem;
+	}
+	.escribir-nota {
+		justify-self: start;
+		color: var(--acento);
 	}
 	.momento .texto {
 		font-style: italic;

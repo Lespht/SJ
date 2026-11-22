@@ -5,7 +5,8 @@
 	// costado y se va al fondo del mazo. Detrás asoman los bordes de las siguientes.
 	type FotoMazo = { id: string; src: string; alt: string };
 
-	let { fotos }: { fotos: FotoMazo[] } = $props();
+	let { fotos, arriba: fotoArriba = $bindable() }: { fotos: FotoMazo[]; arriba?: string } =
+		$props();
 
 	const UMBRAL_PX = 80;
 	const UMBRAL_VELOCIDAD = 0.5; // px/ms: un gesto rápido cuenta aunque sea corto
@@ -23,6 +24,10 @@
 
 	const varias = $derived(fotos.length > 1);
 	const posicion = $derived(new Map(orden.map((indice, pos) => [indice, pos])));
+
+	$effect(() => {
+		fotoArriba = fotos[orden[0]]?.id;
+	});
 
 	function sinMovimiento() {
 		return matchMedia('(prefers-reduced-motion: reduce)').matches;
