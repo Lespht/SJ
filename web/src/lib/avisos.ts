@@ -90,3 +90,13 @@ export async function desactivarAvisos(): Promise<void> {
 	if (guardada) await pb.collection('suscripciones').delete(guardada.id);
 	await suscripcion.unsubscribe();
 }
+
+/** Al abrir una pantalla, se cierran los avisos que llevaban a ella (por ejemplo, Mensajes). */
+export async function limpiarAvisos(ruta: string): Promise<void> {
+	if (typeof navigator === 'undefined' || !navigator.serviceWorker) return;
+	const registro = await navigator.serviceWorker.getRegistration();
+	for (const aviso of (await registro?.getNotifications()) ?? []) {
+		const url = aviso.data?.url;
+		if (typeof url === 'string' && new URL(url, 'http://x').pathname === ruta) aviso.close();
+	}
+}

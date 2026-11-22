@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import { silenciar } from '#lib/avisos-sw.js';
 
 const worker = globalThis as unknown as ServiceWorkerGlobalScope;
 
@@ -27,17 +28,23 @@ worker.addEventListener('push', (evento) => {
 	} catch {
 		// Un aviso sin JSON válido también se muestra con el nombre de la app.
 	}
-	evento.waitUntil(
-		worker.registration.showNotification(
-			typeof aviso?.titulo === 'string' && aviso.titulo.trim() ? aviso.titulo : 'Nosotros',
-			{
-				body: typeof aviso?.cuerpo === 'string' ? aviso.cuerpo : undefined,
-				icon: '/icono-192.png',
-				data: { url: destino(aviso?.url) }
-			}
-		)
-	);
+	evento.waitUntil(mostrar(aviso));
 });
+
+async function mostrar(aviso: { titulo?: unknown; cuerpo?: unknown; url?: unknown } | null) {
+	const ahora = Date.now();
+	// Se apilan como en cualquier app, pero solo vibra uno por minuto (NOS-37).
+	const previas = await worker.registration.getNotifications();
+	await worker.registration.showNotification(
+		typeof aviso?.titulo === 'string' && aviso.titulo.trim() ? aviso.titulo : 'Nosotros',
+		{
+			body: typeof aviso?.cuerpo === 'string' ? aviso.cuerpo : undefined,
+			icon: '/icono-192.png',
+			silent: silenciar(previas, ahora),
+			data: { url: destino(aviso?.url), enviado: ahora }
+		}
+	);
+}
 
 worker.addEventListener('notificationclick', (evento) => {
 	evento.notification.close();

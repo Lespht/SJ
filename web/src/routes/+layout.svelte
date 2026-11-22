@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { setContext } from 'svelte';
 	import { feed, refrescarInicio } from '#lib/feed.svelte.js';
 	import Hoja from '#lib/Hoja.svelte';
 	import BotonMensajes from '#lib/BotonMensajes.svelte';
+	import { limpiarAvisos } from '#lib/avisos.js';
 	import { escucharNovedades, novedades } from '#lib/novedades.svelte.js';
 	import { sesion, renovarSesion } from '#lib/pb.svelte.js';
 	import { temaDe } from '#lib/perfil.svelte.js';
@@ -81,6 +82,15 @@
 			novedades.hay = false;
 		}
 	}
+
+	// Avisos (NOS-37): al llegar a una pantalla, o al volver a la app, se cierran los que llevaban ahí.
+	const limpiar = () => void limpiarAvisos(page.url.pathname).catch(() => {});
+	afterNavigate(limpiar);
+	$effect(() => {
+		const alVolver = () => document.visibilityState === 'visible' && limpiar();
+		document.addEventListener('visibilitychange', alVolver);
+		return () => document.removeEventListener('visibilitychange', alVolver);
+	});
 </script>
 
 <svelte:head>

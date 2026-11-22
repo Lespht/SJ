@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { activarAvisos, desactivarAvisos, estadoAvisos } from './avisos';
+import { activarAvisos, desactivarAvisos, estadoAvisos, limpiarAvisos } from './avisos';
 import { pb } from './pb.svelte';
 
 const endpoint = 'https://push.example.test/dispositivo';
@@ -114,4 +114,21 @@ it('permite reintentar el alta si el endpoint todavía no está guardado', async
 	registros([]);
 
 	await expect(estadoAvisos()).resolves.toBe('inactivo');
+});
+
+it('al abrir una pantalla se cierran sus avisos y quedan los de otras', async () => {
+	const aviso = (url: string) => ({ data: { url: `https://nosotros.test${url}` }, close: vi.fn() });
+	const mensajes = [aviso('/mensajes'), aviso('/mensajes')];
+	const post = aviso('/post/p1');
+	const getNotifications = vi
+		.fn()
+		.mockResolvedValue([...mensajes, post, { data: null, close: vi.fn() }]);
+	vi.mocked(navigator.serviceWorker.getRegistration).mockResolvedValue({
+		...registration,
+		getNotifications
+	} as unknown as ServiceWorkerRegistration);
+
+	await limpiarAvisos('/mensajes');
+	expect(mensajes.every((m) => m.close.mock.calls.length === 1)).toBe(true);
+	expect(post.close).not.toHaveBeenCalled();
 });

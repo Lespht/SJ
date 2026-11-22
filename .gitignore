@@ -10,3 +10,6 @@ Thumbs.db
 # Servicio de avisos: dependencias y claves (la privada nunca va al repo)
 avisos/node_modules/
 avisos/.env
+
+# Python
+__pycache__/
