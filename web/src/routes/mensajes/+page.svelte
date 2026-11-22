@@ -260,8 +260,8 @@
 	.chat {
 		display: flex;
 		flex-direction: column;
-		/* Alto disponible: padding de main (1rem + 1rem), encabezado (flecha de 44px + 0.5rem) y área segura. */
-		height: calc(100dvh - var(--alto-cabecera) - var(--alto-nav) - 2.5rem - 44px);
+		/* Alto disponible: padding de main (1rem + 1rem), sin la cabecera de la app, encabezado (flecha de 44px + 0.5rem) y área segura. */
+		height: calc(100dvh - var(--alto-nav) - 2.5rem - 44px);
 		min-height: 320px;
 		padding: 0;
 		overflow: hidden;

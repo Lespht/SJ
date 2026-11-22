@@ -96,43 +96,46 @@
 {#if enLogin}
 	{@render children()}
 {:else if sesion.usuario}
-	<header class="cabecera">
-		<div class="lado">
-			<button
-				type="button"
-				class="boton-icono"
-				aria-label="Compartir"
-				aria-haspopup="dialog"
-				onclick={abrirHoja}
-			>
-				<Icono nombre="mas" />
-			</button>
-		</div>
-		<a
-			href="/"
-			class="marca"
-			aria-label={novedades.hay ? 'Nosotros (hay novedades)' : 'Nosotros'}
-			onclick={(evento) => tocarInicio(evento, true)}
-		>
-			Nosotros
-			{#if novedades.hay}
-				<svg
-					class="borde-novedades"
-					viewBox="0 0 120 40"
-					preserveAspectRatio="none"
-					aria-hidden="true"
+	<!-- En Mensajes la cabecera sobra: el chat tiene su propio encabezado con la flecha. -->
+	{#if !enMensajes}
+		<header class="cabecera">
+			<div class="lado">
+				<button
+					type="button"
+					class="boton-icono"
+					aria-label="Compartir"
+					aria-haspopup="dialog"
+					onclick={abrirHoja}
 				>
-					<rect x="1" y="1" width="118" height="38" rx="12" pathLength="100" />
-				</svg>
-			{/if}
-		</a>
-		<div class="lado derecha">
-			<a href="/juegos" class="boton-icono" class:activo={activa('/juegos')} aria-label="Juegos">
-				<Icono nombre="juegos" />
+					<Icono nombre="mas" />
+				</button>
+			</div>
+			<a
+				href="/"
+				class="marca"
+				aria-label={novedades.hay ? 'Nosotros (hay novedades)' : 'Nosotros'}
+				onclick={(evento) => tocarInicio(evento, true)}
+			>
+				Nosotros
+				{#if novedades.hay}
+					<svg
+						class="borde-novedades"
+						viewBox="0 0 120 40"
+						preserveAspectRatio="none"
+						aria-hidden="true"
+					>
+						<rect x="1" y="1" width="118" height="38" rx="12" pathLength="100" />
+					</svg>
+				{/if}
 			</a>
-			<BotonMensajes activo={activa('/mensajes')} />
-		</div>
-	</header>
+			<div class="lado derecha">
+				<a href="/juegos" class="boton-icono" class:activo={activa('/juegos')} aria-label="Juegos">
+					<Icono nombre="juegos" />
+				</a>
+				<BotonMensajes activo={activa('/mensajes')} />
+			</div>
+		</header>
+	{/if}
 
 	<main class:sin-barra={enMensajes}>
 		{@render children()}
