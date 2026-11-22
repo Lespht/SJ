@@ -21,9 +21,23 @@ export function leerPedido(cuerpo: unknown): Pedido | null {
 	const { titulo, cuerpo: texto, url } = aviso as Record<string, unknown>;
 	if (!esTexto(titulo)) return null;
 	return {
-		suscripciones: suscripciones.map(({ endpoint, p256dh, auth }) => ({ endpoint, p256dh, auth })),
-		aviso: { titulo, ...(esTexto(texto) && { cuerpo: texto }), ...(esTexto(url) && { url }) }
+		suscripciones: suscripciones.map(({ endpoint, p256dh, auth }) => ({
+			endpoint,
+			p256dh,
+			auth
+		})),
+		aviso: {
+			titulo,
+			...(esTexto(texto) && { cuerpo: texto }),
+			...(esTexto(url) && { url })
+		}
 	};
+}
+
+/** El código HTTP de un envío que salió bien (sendNotification devuelve `{ statusCode }`). */
+function codigo(respuesta: unknown): number | 'ok' {
+	const estado = (respuesta as { statusCode?: unknown } | undefined)?.statusCode;
+	return typeof estado === 'number' ? estado : 'ok';
 }
 
 /**
@@ -40,6 +54,18 @@ export async function entregar(
 		suscripciones.map(({ endpoint, p256dh, auth }) =>
 			mandar({ endpoint, keys: { p256dh, auth } }, contenido)
 		)
+	);
+	// Una línea por aviso (NOS-53): sin ella no se ve si un envío salió ni qué respondió FCM o Apple.
+	const codigos = resultados.map((r) =>
+		r.status === 'fulfilled'
+			? codigo(r.value)
+			: r.reason instanceof WebPushError
+				? r.reason.statusCode
+				: 'error'
+	);
+	const entregados = resultados.filter((r) => r.status === 'fulfilled').length;
+	console.log(
+		`Aviso «${aviso.titulo}» → ${entregados} de ${suscripciones.length} entregado (${codigos.join(', ')})`
 	);
 	return suscripciones
 		.filter((_, i) => {

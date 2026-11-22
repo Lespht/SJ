@@ -33,6 +33,21 @@ describe('entregar', () => {
 	});
 });
 
+describe('registro de cada aviso (NOS-53)', () => {
+	it('deja una línea con el título, cuántos se entregaron y qué respondió cada servicio push', async () => {
+		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const mandar = vi
+			.fn<Mandar>()
+			.mockResolvedValueOnce({ statusCode: 201 })
+			.mockRejectedValueOnce(fallo(403));
+
+		await entregar([a, b], aviso, mandar);
+		expect(log).toHaveBeenCalledExactlyOnceWith('Aviso «Sofi» → 1 de 2 entregado (201, 403)');
+		vi.restoreAllMocks();
+	});
+});
+
 describe('leerPedido', () => {
 	it('acepta suscripciones y un aviso con título', () => {
 		expect(leerPedido({ suscripciones: [a], aviso })).toEqual({ suscripciones: [a], aviso });
