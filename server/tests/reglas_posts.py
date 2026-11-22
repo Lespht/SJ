@@ -147,6 +147,19 @@ st, _ = req("PATCH", f"{F}/{fm['id']}", A, {"post": otroPropio["id"]}); caso("A 
 st, _ = req("PATCH", f"{F}/{fm['id']}", A, {"post": planA["id"]}); caso("A mueve su foto a su plan", True, st)
 st, _ = req("PATCH", f"{F}/{fm['id']}", A, {"post": planB["id"]}); caso("A mueve su foto al plan de B (aporta)", True, st)
 
+# NOS-35 · suscripciones
+S = "/api/collections/suscripciones/records"
+suscripcion = {"usuario": a_id, "endpoint": "https://push.example.test/prueba-a", "p256dh": "prueba-a", "auth": "prueba-a"}
+otra_suscripcion = {**suscripcion, "usuario": b_id, "endpoint": "https://push.example.test/prueba-b"}
+st, suscripcion_a = req("POST", S, A, suscripcion); caso("A registra su propia suscripción", True, st)
+st, _ = req("POST", S, A, otra_suscripcion); caso("A no registra una suscripción de B", False, st)
+st, suscripcion_b = req("POST", S, B, otra_suscripcion); caso("B registra su propia suscripción", True, st)
+st, lista = req("GET", S, A)
+caso("A lista solo sus propias suscripciones", True, st if [r["id"] for r in lista.get("items", [])] == [suscripcion_a.get("id")] else 0)
+if "id" in suscripcion_a:
+    st, _ = req("PATCH", f"{S}/{suscripcion_a['id']}", A, {"auth": "prueba-nueva"}); caso("A no edita su suscripción", False, st)
+    st, _ = req("DELETE", f"{S}/{suscripcion_a['id']}", A); caso("A borra su propia suscripción", True, st)
+
 # limpieza (solo en la copia)
 for uid in (a_id, b_id):
     req("DELETE", f"/api/collections/users/records/{uid}", SU)

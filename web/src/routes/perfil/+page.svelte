@@ -2,6 +2,13 @@
 	import { onMount } from 'svelte';
 	import { cargarAportes } from '#lib/aportes.js';
 	import Avatar from '#lib/Avatar.svelte';
+	import {
+		activarAvisos,
+		desactivarAvisos,
+		estadoAvisos,
+		requiereInstalarAvisos,
+		type EstadoAvisos
+	} from '#lib/avisos.js';
 	import { fotosDe } from '#lib/feed.svelte.js';
 	import Icono from '#lib/Icono.svelte';
 	import {
@@ -48,6 +55,9 @@
 	let borradorNombre = $state<string>();
 	let subiendoAvatar = $state(false);
 	let errorPerfil = $state('');
+	let avisos = $state<EstadoAvisos>();
+	let cambiandoAvisos = $state(false);
+	let errorAvisos = $state('');
 
 	let archivados = $state<Post[]>([]);
 	const urls = new Map<string, string>();
@@ -146,6 +156,40 @@
 			cargando = false;
 		}
 	});
+
+	onMount(() => {
+		void leerAvisos();
+	});
+
+	async function leerAvisos() {
+		errorAvisos = '';
+		try {
+			avisos = await estadoAvisos();
+		} catch {
+			errorAvisos = 'No se pudo consultar el estado de las notificaciones.';
+		}
+	}
+
+	async function cambiarAvisos() {
+		if (!usuarioId || cambiandoAvisos) return;
+		cambiandoAvisos = true;
+		errorAvisos = '';
+		try {
+			if (avisos === 'activo') {
+				await desactivarAvisos();
+				avisos = 'inactivo';
+			} else {
+				avisos = await activarAvisos(usuarioId);
+			}
+		} catch {
+			errorAvisos =
+				avisos === 'activo'
+					? 'No se pudieron desactivar las notificaciones.'
+					: 'No se pudieron activar las notificaciones.';
+		} finally {
+			cambiandoAvisos = false;
+		}
+	}
 
 	async function cambiarFoto(input: HTMLInputElement) {
 		const avatar = input.files?.[0];
@@ -388,6 +432,31 @@
 					></button>
 				{/each}
 			</div>
+		</fieldset>
+
+		<fieldset class="notificaciones" aria-busy={cambiandoAvisos}>
+			<legend>Notificaciones</legend>
+			{#if avisos === 'activo' || avisos === 'inactivo'}
+				{#if avisos === 'activo'}<p class="suave">Activadas en este celular</p>{/if}
+				<button type="button" disabled={cambiandoAvisos} onclick={cambiarAvisos}>
+					{avisos === 'activo' ? 'Desactivar' : 'Activar'}
+				</button>
+			{:else if avisos === 'bloqueado'}
+				<p class="suave">Las bloqueaste en el navegador; se cambian desde sus ajustes.</p>
+			{:else if avisos === 'no-soportado'}
+				<p class="suave">
+					{requiereInstalarAvisos()
+						? 'Agregá Nosotros a la pantalla de inicio para recibir avisos'
+						: 'Este navegador no recibe avisos'}
+				</p>
+			{:else if avisos === 'sin-clave'}
+				<p class="suave">Todavía no disponibles.</p>
+			{:else if errorAvisos}
+				<button type="button" onclick={leerAvisos}>Reintentar</button>
+			{:else}
+				<p class="suave">Consultando el estado…</p>
+			{/if}
+			{#if errorAvisos}<p class="error" role="alert">{errorAvisos}</p>{/if}
 		</fieldset>
 
 		{#if errorPerfil}<p class="error" role="alert">{errorPerfil}</p>{/if}
@@ -682,6 +751,9 @@
 	legend {
 		margin-bottom: 0.3rem;
 		padding: 0;
+	}
+	.notificaciones p {
+		margin: 0 0 0.4rem;
 	}
 	.segmentos {
 		display: grid;
