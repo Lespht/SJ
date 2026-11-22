@@ -352,7 +352,12 @@
 	.feed {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
-		gap: 3rem;
+		gap: 1.5rem;
+	}
+	/* Una línea fina entre posts, para que el pie de uno no se confunda con el siguiente. */
+	.feed > :global(.post + .post) {
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--borde);
 	}
 	.titulo {
 		margin: 0;

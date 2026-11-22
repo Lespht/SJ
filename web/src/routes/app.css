@@ -166,6 +166,16 @@ button.icono {
 	box-shadow: var(--sombra-polaroid);
 }
 
+/* Un plan se distingue de un momento: el margen de abajo del marco se tiñe del acento. */
+.post:not(.momento) > .marco-mazo .polaroid,
+.post:not(.momento) > .pie.polaroid {
+	background: linear-gradient(
+		to bottom,
+		var(--fondo-elevado) 62%,
+		color-mix(in oklab, var(--acento) 16%, var(--fondo-elevado))
+	);
+}
+
 /* Un plan que todavía no pasó: el hueco que falta llenar. */
 .pendiente {
 	border: 1.5px dashed var(--texto-suave);
