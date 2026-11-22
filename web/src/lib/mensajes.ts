@@ -21,3 +21,8 @@ export function marcarLeidos(usuario: Usuario) {
 		.collection('users')
 		.update<Usuario>(usuario.id, { mensajes_vistos: new Date().toISOString() });
 }
+
+/** Con el chat abierto, lo que llega del otro ya está leído (NOS-52). Lo mío no cambia nada. */
+export async function leerSiEsDelOtro(mensaje: { autor: string }, usuario: Usuario) {
+	if (mensaje.autor !== usuario.id) await marcarLeidos(usuario);
+}

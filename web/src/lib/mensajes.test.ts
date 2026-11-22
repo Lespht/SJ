@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { hayNoLeidos, marcarLeidos } from './mensajes';
+import { hayNoLeidos, leerSiEsDelOtro, marcarLeidos } from './mensajes';
 import { pb, type Usuario } from './pb.svelte';
 
 afterEach(() => {
@@ -53,5 +53,17 @@ describe('marcarLeidos', () => {
 			mensajes_vistos: '2026-11-21T18:00:00.000Z'
 		});
 		vi.useRealTimers();
+	});
+});
+
+describe('leerSiEsDelOtro', () => {
+	it('con el chat abierto, un mensaje del otro lo deja leído; uno mío no cambia nada', async () => {
+		const update = vi.spyOn(pb.collection('users'), 'update').mockResolvedValue(yo);
+
+		await leerSiEsDelOtro({ autor: 'u1' }, yo);
+		expect(update).not.toHaveBeenCalled();
+
+		await leerSiEsDelOtro({ autor: 'u2' }, yo);
+		expect(update).toHaveBeenCalledExactlyOnceWith('u1', { mensajes_vistos: expect.any(String) });
 	});
 });

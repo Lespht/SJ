@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { pb, sesion, nombre, type Mensaje, type Usuario } from '#lib/pb.svelte.js';
 	import Avatar from '#lib/Avatar.svelte';
 	import Icono from '#lib/Icono.svelte';
 	import { cambiarTema, cargarTema, ID_CHAT, TEMAS, temaValido, type Tema } from '#lib/chat.js';
+	import { leerSiEsDelOtro, marcarLeidos } from '#lib/mensajes.js';
 
 	let mensajes = $state<Mensaje[]>([]);
 	let texto = $state('');
@@ -48,6 +49,12 @@
 	// Cache de usuarios para mostrar nombres de mensajes que llegan en tiempo real.
 	const usuarios = new Map<string, Usuario>();
 
+	// Estar en el chat es leerlo (NOS-52): al entrar y con cada mensaje del otro que llega acá.
+	// onMount y no $effect: marcarLeidos actualiza la sesión, y un $effect volvería a correr.
+	onMount(() => {
+		if (sesion.usuario) marcarLeidos(sesion.usuario).catch(() => {});
+	});
+
 	$effect(() => {
 		let cancelado = false;
 		let desuscribir: (() => Promise<void>) | undefined;
@@ -67,6 +74,7 @@
 				if (e.action === 'create') {
 					if (mensajes.some((m) => m.id === e.record.id)) return;
 					mensajes.push(e.record);
+					if (sesion.usuario) leerSiEsDelOtro(e.record, sesion.usuario).catch(() => {});
 					await bajar();
 				} else if (e.action === 'delete') {
 					mensajes = mensajes.filter((m) => m.id !== e.record.id);
